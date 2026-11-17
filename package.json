@@ -1,0 +1,16 @@
+{
+  "name": "sentinela-ia",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sentinela IA: falhas de segurança corrigidas graças a hackers éticos, por voz.",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev-server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.9.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

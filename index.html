@@ -1,0 +1,1480 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sentinela IA</title>
+<meta name="description" content="Sentinela IA: diga o nome de uma empresa e veja, em voz e por escrito, as falhas de segurança que hackers éticos encontraram e que já foram corrigidas. Só dados públicos.">
+<meta name="keywords" content="hacking ético, bug bounty, segurança da informação, CVE, falhas corrigidas, hackers éticos, inteligência artificial">
+<meta name="theme-color" content="#04080a">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:site_name" content="Sentinela IA">
+<meta property="og:title" content="Sentinela IA">
+<meta property="og:description" content="Fale com a Sentinela e descubra as falhas que hackers éticos ajudaram a corrigir nas maiores empresas do mundo.">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Sentinela IA","applicationCategory":"EducationalApplication","inLanguage":"pt-BR","description":"Assistente de voz educativo sobre hacking ético: mostra falhas públicas corrigidas graças a pesquisadores de segurança.","offers":{"@type":"Offer","price":"0","priceCurrency":"BRL"}}</script>
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Share+Tech+Mono&display=swap">
+<style>
+/* HUD de terminal (layout do pedido): coluna de sistema | terminal central | alvo e globo; arquivos + teclado embaixo.
+   Visual único escuro, por escolha. Severidade usa cores de status, sempre com texto ao lado. */
+:root {
+  color-scheme: dark;
+  --bg: #04080a;
+  --panel: #08100f;
+  --line: rgba(150, 214, 220, 0.18);
+  --line-2: rgba(150, 214, 220, 0.34);
+  --line-3: rgba(150, 214, 220, 0.62);
+  --ink: #d6e5e7;
+  --ink-2: #9db2b6;
+  --ink-3: #66797d;
+  --accent: #7fe7e0;
+  --accent-dim: rgba(127, 231, 224, 0.12);
+  --ok: #4cc38a;
+  --warn: #fab219;
+  --err: #ff6b6b;
+  --crit: #e5484d;
+  --high: #ec835a;
+  --med: #fab219;
+  --low: #4cc38a;
+  --na: #6e8286;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --hud: 'Share Tech Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --gap: 8px;
+}
+html, body { height: 100%; }
+body {
+  background:
+    radial-gradient(1100px 650px at 50% 35%, rgba(127, 231, 224, 0.05), transparent 70%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    var(--bg);
+  color: var(--ink);
+  font: 13px/1.45 var(--mono);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+.hud { height: 100%; padding-block: 12px; display: grid; grid-template-rows: minmax(0, 1fr) minmax(170px, 29vh); gap: var(--gap); }
+.top { display: grid; grid-template-columns: minmax(220px, 17%) minmax(0, 1fr) minmax(240px, 20%); gap: var(--gap); min-height: 0; }
+.bottom { display: grid; grid-template-columns: minmax(0, 44%) minmax(0, 1fr); gap: var(--gap); min-height: 0; }
+.col { display: flex; flex-direction: column; gap: var(--gap); min-height: 0; }
+.side { overflow-y: auto; scrollbar-width: none; }
+.side::-webkit-scrollbar { display: none; }
+
+.panel { position: relative; background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; flex-shrink: 0; }
+.panel::before, .panel::after { content: ""; position: absolute; width: 8px; height: 8px; border: 1px solid var(--line-3); pointer-events: none; }
+.panel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.panel::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.ph { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--line); font: 11px var(--hud); letter-spacing: .12em; color: var(--ink-3); }
+.ph b { font-weight: normal; color: var(--ink); white-space: nowrap; }
+.ph span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb { padding: 8px; min-height: 0; flex: 1 1 auto; }
+.grow { flex: 1 1 auto; }
+
+.clock { font: clamp(28px, 2.6vw, 42px)/1 var(--hud); letter-spacing: .06em; text-shadow: 0 0 18px rgba(127, 231, 224, .25); }
+.sys { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; font: 11px var(--hud); color: var(--ink-2); letter-spacing: .05em; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--err); } .dim { color: var(--ink-3); }
+
+#gauge { display: block; width: 100%; max-height: 120px; }
+.g-track { fill: none; stroke: rgba(150, 214, 220, .12); stroke-width: 8; stroke-linecap: round; }
+.g-fill { fill: none; stroke-width: 8; stroke-linecap: round; }
+.g-tick { stroke: var(--line-2); stroke-width: 1; }
+.g-val { fill: var(--ink); font: 30px var(--hud); text-anchor: middle; }
+.g-lbl { fill: var(--ink-2); font: 9px var(--hud); letter-spacing: .15em; text-anchor: middle; }
+
+.sev { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.sev li { display: grid; grid-template-columns: 62px 1fr 28px; gap: 8px; align-items: center; font: 11px var(--hud); color: var(--ink-2); }
+.sev .t { height: 6px; background: rgba(150, 214, 220, .07); }
+.sev .f { display: block; height: 100%; border-radius: 0 3px 3px 0; transition: width .6s ease; }
+.sev .n { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.bg-crit { background: var(--crit); } .bg-high { background: var(--high); } .bg-med { background: var(--med); } .bg-low { background: var(--low); } .bg-na { background: var(--na); }
+
+/* terminal */
+.mid { gap: 0; border: 1px solid var(--line-2); background: rgba(4, 9, 11, .94); }
+.tabs, .strip { flex-shrink: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--line-2); font: 11px var(--hud); letter-spacing: .1em; overflow-x: auto; scrollbar-width: none; }
+.tab { padding: 6px 16px; border-right: 1px solid var(--line); color: var(--ink-3); white-space: nowrap; }
+.tab.on { background: var(--ink); color: var(--bg); }
+.tabs .fill { flex: 1; }
+.tabs .tgt { padding: 6px 12px; color: var(--accent); white-space: nowrap; }
+.tbtn { background: none; border: 0; border-left: 1px solid var(--line); padding: 6px 12px; color: var(--accent); font: 11px var(--hud); letter-spacing: .1em; cursor: pointer; white-space: nowrap; }
+.tbtn:hover { background: var(--accent-dim); }
+.tbtn[aria-pressed="false"] { color: var(--ink-3); }
+
+/* esfera holográfica de partículas no centro do quadrado; a resposta escrita fica embaixo */
+.mid { position: relative; }
+.stage { position: relative; flex: 0 0 clamp(170px, 42%, 400px); border-bottom: 1px solid var(--line); overflow: hidden;
+  background: radial-gradient(ellipse 40% 60% at 50% 50%, rgba(110, 140, 255, .07), transparent 70%), repeating-linear-gradient(90deg, rgba(150, 214, 220, .03) 0 1px, transparent 1px 48px); }
+#orb { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.eq { position: absolute; right: 14px; bottom: 12px; display: flex; align-items: flex-end; gap: 3px; height: 28px; opacity: .25; transition: opacity .3s; }
+.eq i { width: 3px; height: 20%; background: #8fb4ff; border-radius: 1px; }
+.stage-st { position: absolute; left: 12px; bottom: 10px; font: 10px var(--hud); letter-spacing: .14em; color: var(--ink-2); }
+.stage-st::before { content: "◉ "; color: var(--ok); }
+.stage.thinking .stage-st::before { color: var(--warn); animation: blink .8s steps(2) infinite; }
+.stage.speaking .stage-st::before { color: #a9b8ff; }
+.stage.speaking .eq { opacity: 1; }
+.stage.speaking .eq i { animation: eq .9s ease-in-out infinite; }
+.eq i:nth-child(2) { animation-delay: -.2s !important; } .eq i:nth-child(3) { animation-delay: -.5s !important; } .eq i:nth-child(4) { animation-delay: -.1s !important; }
+.eq i:nth-child(5) { animation-delay: -.7s !important; } .eq i:nth-child(6) { animation-delay: -.35s !important; } .eq i:nth-child(7) { animation-delay: -.6s !important; }
+.stage.off #orb { display: none; }
+.stage { cursor: pointer; }
+.stage:hover .wake span { border-color: rgba(255, 122, 138, .9); }
+.caption { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); max-width: 80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 12px var(--mono); color: var(--ink-2); text-align: center; }
+.stage.listening .stage-st::before { color: #ff7a8a; animation: blink 1.2s steps(2) infinite; }
+.wake { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); pointer-events: none; }
+.wake span { display: inline-block; padding: 6px 14px; border: 1px solid rgba(255, 122, 138, .55); background: rgba(4, 8, 10, .75); color: var(--ink); font: 11px var(--hud); letter-spacing: .14em; white-space: nowrap; animation: wakepulse 2s ease-in-out infinite; }
+@keyframes wakepulse { 50% { border-color: rgba(255, 122, 138, .15); color: var(--ink-2); } }
+@media (max-width: 520px) { .wake span { white-space: normal; text-align: center; max-width: 80vw; } }
+.micbtn { flex: none; width: 34px; height: 30px; border: 1px solid var(--line-2); background: transparent; color: var(--ink); font-size: 15px; cursor: pointer; display: grid; place-items: center; }
+.micbtn:hover { border-color: var(--accent); background: var(--accent-dim); }
+.micbtn.live { border-color: #ff7a8a; background: rgba(255, 122, 138, .14); box-shadow: 0 0 0 3px rgba(255, 122, 138, .12); animation: micpulse 1.6s ease-in-out infinite; }
+@keyframes micpulse { 50% { box-shadow: 0 0 0 6px rgba(255, 122, 138, .05); } }
+.vpanel { position: absolute; z-index: 5; top: 30px; right: 6px; width: min(340px, calc(100% - 12px)); max-height: calc(100% - 40px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line-2); box-shadow: 0 10px 30px rgba(0, 0, 0, .6); padding: 10px 12px; font-size: 12px; }
+.vpanel h3 { margin: 0 0 6px; font: 11px var(--hud); letter-spacing: .12em; color: var(--accent); font-weight: normal; }
+.vpanel .grp { margin: 8px 0 4px; font: 10px var(--hud); letter-spacing: .12em; color: var(--ink-3); }
+.vpanel label.opt { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; color: var(--ink-2); }
+.vpanel label.opt:hover { color: var(--ink); }
+.vpanel input[type=radio], .vpanel input[type=checkbox] { accent-color: var(--accent); margin: 0; }
+.vpanel .tag { font-size: 10px; color: var(--accent); border: 1px solid var(--line-2); padding: 0 4px; }
+.vpanel .row { display: grid; grid-template-columns: 9ch 1fr 4ch; gap: 8px; align-items: center; margin-top: 6px; color: var(--ink-2); }
+.vpanel input[type=range] { width: 100%; accent-color: var(--accent); }
+.vpanel .acts { display: flex; gap: 6px; margin-top: 10px; }
+.vpanel .hint { margin-top: 8px; color: var(--ink-3); font-size: 11px; line-height: 1.4; }
+.ai.voz { border-left-color: var(--accent); box-shadow: inset 0 0 0 1px rgba(127, 231, 224, .15); }
+.ai.voz.talking { background: rgba(127, 231, 224, .08); }
+.term { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 10px 14px 14px; cursor: text; scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+.ln { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.45em; }
+.ln.in { margin-top: 6px; }
+.prompt { color: var(--accent); }
+.ln.h { color: var(--accent); margin-top: 10px; letter-spacing: .04em; }
+.ln.acc { color: var(--accent); font-weight: 700; letter-spacing: .04em; }
+.ln.dim { color: var(--ink-3); } .ln.warn { color: var(--warn); } .ln.err { color: var(--err); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.chip { background: transparent; border: 1px solid var(--line-2); color: var(--ink); padding: 2px 9px; cursor: pointer; font-size: 12px; }
+.chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.rows { display: grid; gap: 1px; margin: 2px 0; }
+.rows div { display: grid; grid-template-columns: minmax(150px, 32ch) 1fr; gap: 12px; }
+.rows .k { color: var(--ink-2); }
+.think { color: var(--ink-2); }
+.think::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px; border: 2px solid var(--line-2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; }
+.ai { margin: 8px 0; padding: 8px 12px; border-left: 2px solid var(--accent); background: rgba(127, 231, 224, .04); white-space: pre-wrap; }
+.ai .lbl { font: 11px var(--hud); letter-spacing: .1em; color: var(--accent); margin-bottom: 4px; }
+
+.v { margin: 8px 0 2px; animation: rise .35s ease both; }
+.v-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.v-id { background: none; border: 0; padding: 0; color: var(--ink); font-weight: 700; cursor: pointer; min-width: 15ch; text-align: left; }
+.v-id:hover { color: var(--accent); text-decoration: underline; }
+.v-comp { color: var(--ink-2); flex: 1 1 160px; }
+.v-st { font-size: 11px; letter-spacing: .05em; color: var(--ok); }
+.v-sub, .v-eth, .v-meta { padding-left: 2ch; color: var(--ink-2); }
+.v-eth { color: var(--accent); }
+.v-meta { font-size: 12px; color: var(--ink-3); display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.v-meta .kev { color: var(--warn); }
+.badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; line-height: 18px; border: 1px solid currentColor; white-space: nowrap; }
+.s-crit { color: var(--crit); background: rgba(229, 72, 77, .12); } .s-high { color: var(--high); background: rgba(236, 131, 90, .12); }
+.s-med { color: var(--med); background: rgba(250, 178, 25, .1); } .s-low { color: var(--low); background: rgba(76, 195, 138, .1); } .s-na { color: var(--na); }
+.detail { margin: 8px 0; padding: 8px 12px; border: 1px solid var(--line-2); background: rgba(150, 214, 220, .03); }
+.detail dl { display: grid; grid-template-columns: 13ch 1fr; gap: 3px 12px; margin: 6px 0 0; }
+.detail dt { color: var(--ink-3); } .detail dd { margin: 0; min-width: 0; }
+
+.inrow { display: flex; align-items: center; gap: 1ch; margin-top: 6px; }
+.inrow input { flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: var(--ink); font: inherit; caret-color: var(--accent); padding: 2px 0; }
+.inrow input::placeholder { color: var(--ink-3); }
+.strip { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 4px 10px; border-top: 1px solid var(--line); font: 10px var(--hud); letter-spacing: .12em; color: var(--ink-3); }
+
+/* coluna direita */
+.tname { font: 20px var(--hud); letter-spacing: .04em; margin-bottom: 6px; overflow-wrap: anywhere; }
+.tdl { display: grid; grid-template-columns: 9ch 1fr; gap: 2px 8px; margin: 0; font-size: 12px; }
+.tdl dt { color: var(--ink-3); } .tdl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.globe-p { flex: 1 1 150px; min-height: 150px; }
+.globe-p .pb { padding: 0; position: relative; }
+#globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hk { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.hk li { display: grid; grid-template-columns: minmax(0, 1fr) 54px 18px; gap: 8px; align-items: center; }
+.hk .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hk .br { height: 4px; background: rgba(150, 214, 220, .08); }
+.hk .br i { display: block; height: 100%; background: var(--accent); border-radius: 0 2px 2px 0; }
+.hk .c { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* arquivos + teclado */
+.files .pb { overflow-y: auto; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px 4px; }
+.file { background: none; border: 1px solid transparent; padding: 6px 2px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: var(--ink-2); font-size: 11px; min-width: 0; }
+.file span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file:hover { border-color: var(--line-2); color: var(--ink); background: var(--accent-dim); }
+.fi { width: 26px; height: 26px; fill: rgba(214, 229, 231, .85); }
+.fi .fold { fill: none; stroke: var(--bg); stroke-width: 1.2; }
+.fi .stripe { fill: var(--bg); }
+.kb .pb { display: flex; }
+.keys { flex: 1; display: flex; flex-direction: column; gap: 4px; user-select: none; }
+.krow { flex: 1; display: flex; gap: 4px; min-height: 0; }
+.key { flex: 1 1 0; min-width: 0; background: rgba(150, 214, 220, .03); border: 1px solid var(--line-2); color: var(--ink-2); font: 11px var(--hud); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
+.key:hover { border-color: var(--line-3); color: var(--ink); }
+.key.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes eq { 0%, 100% { height: 20%; } 50% { height: 100%; } }
+@keyframes rise { from { opacity: .2; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes blink { 50% { opacity: 0; } }
+.cursor::after { content: "▋"; color: var(--accent); animation: blink .9s steps(2) infinite; margin-left: 1px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+@media (max-height: 800px) and (min-width: 901px) {
+  .clock { font-size: 28px; } #gauge { max-height: 90px; } .pb { padding: 6px 8px; }
+  .hud { grid-template-rows: minmax(0, 1fr) minmax(160px, 26vh); }
+}
+@media (max-width: 1180px) and (min-width: 901px) { .top { grid-template-columns: 200px minmax(0, 1fr) 220px; } }
+@media (max-width: 900px) {
+  body { overflow: auto; }
+  .hud { height: auto; display: flex; flex-direction: column; }
+  .top, .bottom { display: flex; flex-direction: column; }
+  .mid { order: -1; height: 84svh; min-height: 560px; }
+  .stage { flex-basis: 230px; }
+  .side { overflow: visible; }
+  .left { display: grid; grid-template-columns: 1fr 1fr; }
+  .left .panel:first-child { grid-column: 1 / -1; }
+  .globe-p { flex: none; height: 230px; }
+  .kb { display: none; }
+  .tabs .tgt { display: none; }
+  .rows div { grid-template-columns: 1fr; gap: 0; }
+  .rows div span + span { padding-left: 2ch; }
+  .inrow input { font-size: 16px; }
+}
+@media (max-width: 520px) {
+  .left { grid-template-columns: 1fr; }
+  .term { padding: 8px 10px 12px; }
+  .detail dl { grid-template-columns: 1fr; }
+  .v-id { min-width: 0; }
+}
+</style>
+
+<div class="hud">
+  <div class="top">
+    <aside class="col side left">
+      <section class="panel"><div class="ph"><b>SISTEMA</b><span>SENTINELA IA</span></div>
+        <div class="pb"><div class="clock" id="clock">--:--:--</div>
+          <div class="sys"><span id="date">—</span><span id="sess">SESSÃO 00:00:00</span><span>IA <b id="aiState" class="dim">…</b></span><span>DADOS <b class="ok">PÚBLICOS</b></span></div></div></section>
+      <section class="panel"><div class="ph"><b>ÍNDICE DE RISCO</b><span>0–99 · didático</span></div><div class="pb"><svg id="gauge" viewBox="0 0 140 112" role="img" aria-label="Índice de risco"></svg></div></section>
+      <section class="panel grow"><div class="ph"><b>SEVERIDADE</b><span id="sevMeta">—</span></div><div class="pb"><ul class="sev" id="sev"></ul></div></section>
+    </aside>
+
+    <main class="col mid">
+      <nav class="tabs"><span class="tab on">SENTINELA</span><span class="tab">ACHADOS</span><span class="tab">ÉTICA</span><span class="fill"></span><span class="tgt" id="tabTarget">SEM ALVO</span><button type="button" class="tbtn" id="voiceBtn" aria-expanded="false" aria-controls="vpanel" hidden>🔊 VOZ ▾</button><button type="button" class="tbtn" id="holoBtn" aria-pressed="true">◎ ESFERA</button></nav>
+      <div class="vpanel" id="vpanel" hidden>
+        <h3>VOZ DO SENTINEL</h3>
+        <label class="opt"><input type="checkbox" id="vOn"> responder em voz</label>
+        <div id="vList"></div>
+        <div class="row" id="pitchRow"><span>tom</span><input type="range" id="vPitch" min="0.5" max="1.3" step="0.05"><span id="vPitchV"></span></div>
+        <div class="row"><span>velocidade</span><input type="range" id="vRate" min="0.8" max="1.3" step="0.05"><span id="vRateV"></span></div>
+        <div class="acts"><button type="button" class="chip" id="vTest">▶ testar</button><button type="button" class="chip" id="vClose">fechar</button></div>
+        <div class="hint" id="vHint"></div>
+      </div>
+      <div class="stage" id="stage">
+        <canvas id="orb" aria-hidden="true"></canvas>
+        <div class="caption" id="caption"></div>
+        <div class="wake" id="wake" hidden><span id="wakeText">TOQUE EM QUALQUER LUGAR PARA ATIVAR A SENTINELA</span></div>
+        <div class="stage-st" id="stageSt">PRONTO</div>
+        <div class="eq"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    <div class="term" id="term">
+        <div id="out" aria-live="polite"></div>
+        <form class="inrow" id="form" autocomplete="off">
+          <label for="cmd" class="prompt">sentinela@etico:~$</label>
+          <input id="cmd" spellcheck="false" autocapitalize="off" enterkeyhint="go" placeholder="nome da empresa… ou toque 🎙">
+          <button type="button" class="micbtn" id="micBtn" aria-pressed="false" title="Falar com o Sentinela">🎙</button>
+        </form>
+      </div>
+      <div class="strip"><span>⚖ SOMENTE DADOS PÚBLICOS</span><span>NENHUM SISTEMA DO ALVO É ACESSADO</span><span>TESTES REAIS EXIGEM AUTORIZAÇÃO POR ESCRITO</span></div>
+    </main>
+
+    <aside class="col side right">
+      <section class="panel"><div class="ph"><b>ALVO</b><span id="tMode">—</span></div><div class="pb" id="target"></div></section>
+      <section class="panel globe-p"><div class="ph"><b>GLOBO</b><span>sede do alvo</span></div><div class="pb"><canvas id="globe" role="img" aria-label="Globo com a sede do alvo"></canvas></div></section>
+      <section class="panel"><div class="ph"><b>HACKERS ÉTICOS</b><span>créditos públicos</span></div><div class="pb"><ol class="hk" id="hackers"></ol></div></section>
+    </aside>
+  </div>
+
+  <div class="bottom">
+    <section class="panel files"><div class="ph"><b id="filesTitle">ALVOS · ~/</b><span id="filesMeta">clique para investigar</span></div><div class="pb"><div class="grid" id="files"></div></div></section>
+    <section class="panel kb"><div class="ph"><b>TECLADO</b><span>clique para digitar</span></div><div class="pb"><div class="keys" id="keys"></div></div></section>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const out = $('#out'), term = $('#term'), input = $('#cmd');
+  const startedAt = Date.now();
+
+  // ── Acervo verificado: casos históricos públicos, usados quando a IA não está disponível ──
+  const ACERVO = {
+    google: { empresa: { nome: 'Google', setor: 'Tecnologia / Internet', sede: 'Mountain View, EUA', lat: 37.42, lon: -122.08, bugBounty: 'Google Bug Hunters (VRP)', bugBountyUrl: 'https://bughunters.google.com' }, falhas: [
+      { id: 'CVE-2024-0519', titulo: 'Acesso de memória fora dos limites no V8 (Chrome)', ano: 2024, severidade: 'Alta', cvss: 8.8, componente: 'Chrome / V8', pesquisador: 'Anônimo', canal: 'Chrome VRP', exploradaAntes: true, resumo: 'Uma página maliciosa podia corromper a memória do navegador. Corrigida no Chrome 120.0.6099.224.' },
+      { id: 'CVE-2023-4863', titulo: 'Estouro de buffer em imagens WebP (libwebp)', ano: 2023, severidade: 'Alta', cvss: 8.8, componente: 'Chrome / libwebp', pesquisador: 'Apple SEAR; The Citizen Lab', canal: 'Chrome VRP', exploradaAntes: true, resumo: 'Imagens WebP manipuladas podiam corromper a memória. Corrigida no Chrome 116.0.5845.187.' } ] },
+    microsoft: { empresa: { nome: 'Microsoft', setor: 'Tecnologia / Software', sede: 'Redmond, EUA', lat: 47.67, lon: -122.12, bugBounty: 'Microsoft Bug Bounty (MSRC)', bugBountyUrl: 'https://www.microsoft.com/en-us/msrc/bounty' }, falhas: [
+      { id: 'CVE-2020-1472', titulo: 'Zerologon: elevação de privilégio no Netlogon', ano: 2020, severidade: 'Crítica', cvss: 10, componente: 'Windows Server / Netlogon', pesquisador: 'Tom Tervoort (Secura)', canal: 'divulgação coordenada', exploradaAntes: true, resumo: 'Permitia virar administrador do domínio da rede. Corrigida em agosto de 2020.' },
+      { id: 'CVE-2021-26855', titulo: 'ProxyLogon: falha no Exchange Server', ano: 2021, severidade: 'Crítica', cvss: 9.8, componente: 'Exchange Server', pesquisador: 'Orange Tsai (DEVCORE)', canal: 'divulgação coordenada', exploradaAntes: true, resumo: 'Servidores de e-mail podiam ser controlados remotamente. Corrigida em março de 2021.' },
+      { id: 'CVE-2019-0708', titulo: 'BlueKeep: execução remota no Área de Trabalho Remota', ano: 2019, severidade: 'Crítica', cvss: 9.8, componente: 'Windows / Remote Desktop', pesquisador: 'UK National Cyber Security Centre', canal: 'divulgação coordenada', exploradaAntes: true, resumo: 'Computadores com acesso remoto exposto podiam ser invadidos. Corrigida em maio de 2019.' } ] },
+    apple: { empresa: { nome: 'Apple', setor: 'Tecnologia / Hardware', sede: 'Cupertino, EUA', lat: 37.33, lon: -122.01, bugBounty: 'Apple Security Bounty', bugBountyUrl: 'https://security.apple.com/bounty/' }, falhas: [
+      { id: 'CVE-2021-30860', titulo: 'FORCEDENTRY: estouro de inteiro no CoreGraphics', ano: 2021, severidade: 'Alta', cvss: 7.8, componente: 'iOS / CoreGraphics', pesquisador: 'The Citizen Lab', canal: 'divulgação coordenada', exploradaAntes: true, resumo: 'Usada por spyware para invadir iPhones sem clique. Corrigida no iOS 14.8.' },
+      { id: 'CVE-2023-41064', titulo: 'BLASTPASS: estouro de buffer no ImageIO', ano: 2023, severidade: 'Alta', cvss: 7.8, componente: 'iOS / ImageIO', pesquisador: 'The Citizen Lab', canal: 'divulgação coordenada', exploradaAntes: true, resumo: 'Imagens manipuladas podiam comprometer o iPhone. Corrigida no iOS 16.6.1.' } ] },
+    gitlab: { empresa: { nome: 'GitLab', setor: 'DevOps / Software', sede: 'São Francisco, EUA', lat: 37.77, lon: -122.42, bugBounty: 'HackerOne', bugBountyUrl: 'https://hackerone.com/gitlab' }, falhas: [
+      { id: 'CVE-2023-7028', titulo: 'Tomada de conta via e-mail de redefinição de senha', ano: 2024, severidade: 'Crítica', cvss: 10, componente: 'GitLab CE/EE', pesquisador: 'asterion04', canal: 'HackerOne', exploradaAntes: true, resumo: 'O link de troca de senha podia ir para um e-mail do atacante. Corrigida no GitLab 16.7.2.' },
+      { id: 'CVE-2021-22205', titulo: 'Validação de imagens enviadas (ExifTool) levava a execução remota', ano: 2021, severidade: 'Crítica', cvss: 10, componente: 'GitLab CE/EE', pesquisador: 'vakzz', canal: 'HackerOne', exploradaAntes: true, resumo: 'Uma imagem enviada podia executar comandos no servidor. Corrigida no GitLab 13.10.3.' } ] },
+    meta: { empresa: { nome: 'Meta (Facebook)', setor: 'Redes sociais', sede: 'Menlo Park, EUA', lat: 37.48, lon: -122.15, bugBounty: 'Meta Bug Bounty', bugBountyUrl: 'https://bugbounty.meta.com' }, falhas: [
+      { id: 'CVE-2025-55182', titulo: 'Execução remota no React Server Components', ano: 2025, severidade: 'Crítica', cvss: 10, componente: 'React', pesquisador: 'Lachlan Davidson', canal: 'Meta Bug Bounty', exploradaAntes: true, resumo: 'Sites feitos com React Server Components podiam ser controlados remotamente. Corrigida no React 19.0.1, 19.1.2 e 19.2.1.' } ] },
+    mozilla: { empresa: { nome: 'Mozilla', setor: 'Navegadores / Open source', sede: 'São Francisco, EUA', lat: 37.79, lon: -122.39, bugBounty: 'Mozilla Bug Bounty', bugBountyUrl: 'https://www.mozilla.org/en-US/security/bug-bounty/' }, falhas: [
+      { id: 'CVE-2024-9680', titulo: 'Use-after-free nas animações do Firefox', ano: 2024, severidade: 'Crítica', cvss: 9.8, componente: 'Firefox', pesquisador: 'Damien Schaeffer (ESET)', canal: 'Mozilla Bug Bounty', exploradaAntes: true, resumo: 'Uma página podia executar código no computador. Corrigida no Firefox 131.0.2.' } ] },
+    apache: { empresa: { nome: 'Apache Software Foundation', setor: 'Open source', sede: 'Wilmington, EUA', lat: 39.74, lon: -75.54, bugBounty: 'divulgação coordenada', bugBountyUrl: null }, falhas: [
+      { id: 'CVE-2021-44228', titulo: 'Log4Shell: execução remota no Log4j 2', ano: 2021, severidade: 'Crítica', cvss: 10, componente: 'Log4j 2', pesquisador: 'Chen Zhaojun (Alibaba Cloud)', canal: 'divulgação coordenada', exploradaAntes: true, resumo: 'Um texto em um log podia executar código em milhões de servidores. Corrigida no Log4j 2.15.0 e versões seguintes.' } ] },
+    openssl: { empresa: { nome: 'OpenSSL', setor: 'Criptografia / Open source', sede: 'Global', lat: 46.95, lon: 7.45, bugBounty: 'divulgação coordenada', bugBountyUrl: null }, falhas: [
+      { id: 'CVE-2014-0160', titulo: 'Heartbleed: vazamento de memória no TLS', ano: 2014, severidade: 'Alta', cvss: 7.5, componente: 'OpenSSL', pesquisador: 'Neel Mehta (Google); Codenomicon', canal: 'divulgação coordenada', exploradaAntes: false, resumo: 'Servidores podiam vazar senhas e chaves. Corrigida no OpenSSL 1.0.1g.' } ] },
+  };
+  const ALIASES = { chrome: 'google', android: 'google', alphabet: 'google', youtube: 'google', windows: 'microsoft', azure: 'microsoft', iphone: 'apple', ios: 'apple', facebook: 'meta', whatsapp: 'meta', instagram: 'meta', firefox: 'mozilla', log4j: 'apache' };
+  const SUGESTOES = ['google', 'microsoft', 'apple', 'meta', 'amazon', 'netflix', 'gitlab', 'github', 'uber', 'shopify', 'tesla', 'nubank', 'mercado livre', 'ifood', 'spotify', 'mozilla'];
+  const TRUSTED = /^https:\/\/([a-z0-9-]+\.)*(hackerone\.com|bugcrowd\.com|intigriti\.com|yeswehack\.com|google\.com|microsoft\.com|apple\.com|meta\.com|facebook\.com|mozilla\.org|github\.com|gitlab\.com|samsungmobile\.com|apache\.org|nubank\.com\.br|mercadolivre\.com\.br)(\/|$)/i;
+
+  const state = { target: null, falhas: [], sample: null, ai: 'loading', ctl: null, busy: false, hist: [], hi: -1 };
+
+  // ── holograma: estados visuais ──
+  const stage = $('#stage'), stageSt = $('#stageSt');
+  const wordsOf = (t) => new Set(String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]{2,}/g) || []);
+  /** O microfone ouviu a própria voz da IA? (compara com o que ela falou nos últimos segundos) */
+  function isEcho(heard) {
+    const w = wordsOf(heard); if (w.size < 2) return false;
+    const now = performance.now();
+    return conv.recent.some((r) => now - r.t < 20000 && [...w].filter((x) => r.words.has(x)).length / w.size >= 0.6);
+  }
+  const conv = { history: [], recent: [], auto: true, starting: false, dict: null, listening: false, state: 'idle', buf: '', timer: null, awaitTimer: null, mutedUntil: 0, lang: 'pt-BR', pulse: 0, greeted: false };
+  function stageMode(mode) { // 'idle' | 'thinking'
+    stage.classList.toggle('thinking', mode === 'thinking');
+    refreshStatus();
+  }
+  function refreshStatus() {
+    if (typeof updateWake === 'function') try { updateWake(); } catch {}
+    stageSt.textContent = voice.speaking ? 'FALANDO' : stage.classList.contains('thinking') ? 'ANALISANDO…' : conv.state === 'await' ? 'ESPERANDO A EMPRESA' : conv.listening ? 'OUVINDO' : 'PRONTO';
+  }
+  const holoBtn = $('#holoBtn');
+  let holoOn = true;
+  try { holoOn = localStorage.getItem('sentinel.holo') !== '0'; } catch {}
+  const applyHolo = () => { stage.classList.toggle('off', !holoOn); holoBtn.setAttribute('aria-pressed', String(holoOn)); };
+  holoBtn.onclick = () => { holoOn = !holoOn; try { localStorage.setItem('sentinel.holo', holoOn ? '1' : '0'); } catch {} applyHolo(); };
+  applyHolo();
+
+  // ── voz: vozes do Claude (capacidade "tts") e vozes do próprio aparelho ──
+  const CLAUDE_VOICES = [['buttery', 'Claude · buttery'], ['rounded', 'Claude · rounded'], ['glassy', 'Claude · glassy'], ['airy', 'Claude · airy']];
+  const MALE = /ant[oô]nio|daniel|felipe|f[aá]bio|donato|j[uú]lio|humberto|nicolau|val[eé]rio|ricardo|thiago|lucas|\bmale\b|mascul|homem/i;
+  const FEMALE = /luciana|francisca|thalita|maria|joana|catarina|fernanda|vit[oó]ria|let[ií]cia|raquel|female|feminin|mulher|google portugu/i;
+  const NATURAL = /natural|neural|online|enhanced|premium|aprimorad|melhorad|siri/i;
+  const voice = { mode: 'pending', tts: null, on: true, speaking: false, current: null, pick: null, pitch: null, rate: 1, lines: [], device: [] };
+  try {
+    const v = JSON.parse(localStorage.getItem('sentinel.voz2') || '{}');
+    if (typeof v.on === 'boolean') voice.on = v.on;
+    if (typeof v.pick === 'string') voice.pick = v.pick;
+    if (Number(v.pitch)) voice.pitch = Number(v.pitch);
+    if (Number(v.rate)) voice.rate = Number(v.rate);
+  } catch {}
+  const savePrefs = () => { try { localStorage.setItem('sentinel.voz2', JSON.stringify({ on: voice.on, pick: voice.pick, pitch: voice.pitch, rate: voice.rate })); } catch {} };
+  const vScore = (d) => (d.male ? 4 : 0) + (d.natural ? 3 : 0) + (d.br ? 1 : 0);
+  function loadDeviceVoices() {
+    const ss = window.speechSynthesis;
+    voice.device = !ss ? [] : ss.getVoices().filter((v) => /^pt/i.test(v.lang)).map((v) => ({
+      v, id: 'dev:' + v.voiceURI, name: v.name, male: MALE.test(v.name) && !FEMALE.test(v.name), natural: NATURAL.test(v.name), br: /BR/i.test(v.lang),
+    })).sort((a, b) => vScore(b) - vScore(a));
+  }
+  function bestDefault() {
+    const d = voice.device[0];
+    if (d && d.male) return d.id;              // voz masculina do aparelho (ex.: "Antonio (Natural)")
+    if (voice.tts) return 'claude:buttery';
+    return d ? d.id : null;
+  }
+  function currentPick() {
+    const id = voice.pick;
+    const ok = id && ((id.startsWith('claude:') && voice.tts) || voice.device.some((d) => d.id === id));
+    return ok ? id : bestDefault();
+  }
+  /** Tom: se não houver voz masculina, a voz do aparelho fica mais grave por padrão. */
+  function pitchFor(id) {
+    if (voice.pitch != null) return voice.pitch;
+    const d = voice.device.find((x) => x.id === id);
+    return d && !d.male ? 0.75 : 1;
+  }
+
+  const voiceBtn = $('#voiceBtn'), vpanel = $('#vpanel');
+  function setSpeaking(on) {
+    if (voice.speaking && !on) {
+      conv.mutedUntil = performance.now() + 350;
+      if (!conv.dict && conv.auto && conv.wasListening && !conv.rec && !conv.recBlocked) setTimeout(() => { if (!conv.rec && !voice.speaking) startBrowserRec(); }, 300);
+    }
+    voice.speaking = on;
+    stage.classList.toggle('speaking', on);
+    voice.current?.classList.toggle('talking', on);
+    if (!on) lipsStop();
+    refreshStatus();
+  }
+  function applyVoiceBtn() {
+    voiceBtn.hidden = voice.mode === 'none' || voice.mode === 'pending';
+    voiceBtn.textContent = (voice.on ? '🔊' : '🔇') + ' VOZ ▾';
+    voiceBtn.title = 'Escolher a voz';
+  }
+  const forSpeech = (t) => String(t || '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/CVE-(\d{4})-(\d+)/gi, 'CVE $1 $2')
+    .replace(/[↳•#*_`>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const sentences = (t) => (forSpeech(t).match(/[^.!?…]+[.!?…]*/g) || []).map((s) => s.trim()).filter((s) => s.length > 1);
+
+  function speakDevice(list, append, id) {
+    const ss = window.speechSynthesis; if (!ss) return;
+    if (voice.tts?.active?.()) voice.tts.stop().catch(() => {});
+    if (!append) ss.cancel();
+    const d = voice.device.find((x) => x.id === id);
+    for (const text of list) {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = d?.v.lang || 'pt-BR'; if (d) u.voice = d.v;
+      u.rate = voice.rate; u.pitch = pitchFor(id);
+      u.onstart = () => { setSpeaking(true); lipsStart(text); };
+      u.onboundary = (e) => lipsSync(e.charIndex);
+      u.onend = u.onerror = () => { lipsStop(); if (!ss.speaking && !ss.pending) setSpeaking(false); };
+      ss.speak(u);
+    }
+  }
+  function speakTts(list, append, name) {
+    window.speechSynthesis?.cancel();
+    const fresh = !append || !voice.tts.active?.();
+    if (fresh) voice.lines = [];
+    voice.lines.push(...list);
+    const lines = list.slice(0, 90).map((text) => ({ text: text.slice(0, 1900) }));
+    const opts = { language: 'pt-BR', voice: name, rate: voice.rate };
+    (fresh ? voice.tts.speak(lines, opts) : voice.tts.add(lines, opts)).catch((e) => {
+      // O viewer desligou a leitura em voz desta página: respeitar, sem trocar por outra voz.
+      if (e?.code === 'not_granted') { voice.mode = 'none'; vpanel.hidden = true; applyVoiceBtn(); setSpeaking(false); }
+    });
+  }
+  /** Fala o texto (substitui o que estiver sendo dito, ou continua com append). */
+  function say(text, { append = false, block = null, force = false } = {}) {
+    conv.recent.push({ words: wordsOf(text), t: performance.now() });
+    conv.recent = conv.recent.slice(-6);
+    if (block) voice.current = block;
+    if ((!voice.on && !force) || voice.mode === 'none' || voice.mode === 'pending') return;
+    const list = sentences(text);
+    let id = currentPick();
+    if (id && id.startsWith('claude:') && conv.dict && (conv.dict.active() || conv.starting)) id = voice.device[0]?.id || null;
+    if (!list.length || !id) return;
+    if (id.startsWith('claude:')) speakTts(list, append, id.slice(7)); else speakDevice(list, append, id);
+  }
+  function stopVoice() {
+    voice.tts?.stop().catch(() => {});
+    window.speechSynthesis?.cancel();
+    setSpeaking(false);
+  }
+
+  // ── boca do holograma: abre e fecha seguindo as vogais do texto que está sendo falado ──
+  const lips = { text: '', t0: 0, on: false, o: 0 };
+  const cps = () => 14.5 * voice.rate;                 // caracteres por segundo da fala em português
+  function lipsStart(text) { lips.text = text || ''; lips.t0 = performance.now(); lips.on = true; }
+  function lipsSync(charIndex) { if (lips.on && Number.isFinite(charIndex)) lips.t0 = performance.now() - (charIndex / cps()) * 1000; }
+  function lipsAt(ms, line) {
+    const t = voice.lines[line];
+    if (t != null && t !== lips.text) lips.text = t;
+    lips.on = true; lips.t0 = performance.now() - ms;
+  }
+  function lipsStop() { lips.on = false; }
+  function openness(ch) {
+    if (!ch) return 0;
+    const c = ch.toLowerCase();
+    if ('aáàâã'.includes(c)) return 1;
+    if ('éó'.includes(c)) return 0.85;
+    if ('eêoôõ'.includes(c)) return 0.7;
+    if ('iíuúy'.includes(c)) return 0.42;
+    if ('mbp'.includes(c)) return 0;
+    if ('fv'.includes(c)) return 0.12;
+    if (/[a-zçñ0-9]/.test(c)) return 0.28;
+    return 0;                                          // espaço e pontuação: boca fechada
+  }
+  function lipsFrame(now) {
+    let target = 0;
+    if (lips.on && voice.speaking) {
+      const i = Math.floor(((now - lips.t0) / 1000) * cps());
+      if (i >= 0 && i < lips.text.length) target = openness(lips.text[i]) * 0.65 + openness(lips.text[i + 1]) * 0.35;
+    }
+    lips.o += (target - lips.o) * (target > lips.o ? 0.45 : 0.3);
+    if (Math.abs(target - lips.o) < 0.004) lips.o = target;
+    requestAnimationFrame(lipsFrame);
+  }
+  requestAnimationFrame(lipsFrame);
+
+  // ── esfera holográfica de partículas ──
+  // Pontos numa esfera (espiral de Fibonacci), deformados por ondas suaves.
+  // Em repouso ela "respira"; analisando, gira e ondula mais; falando, cresce
+  // e pulsa no ritmo das sílabas (a mesma energia que movia a boca).
+  const orb = $('#orb'), octx = orb.getContext('2d');
+  const ORB_N = matchMedia('(max-width: 900px)').matches ? 1800 : 2800;
+  const PTS = new Float32Array(ORB_N * 3);
+  const GA = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < ORB_N; i++) {
+    const y = 1 - (i / (ORB_N - 1)) * 2, r = Math.sqrt(1 - y * y), th = GA * i;
+    PTS[i * 3] = Math.cos(th) * r; PTS[i * 3 + 1] = y; PTS[i * 3 + 2] = Math.sin(th) * r;
+  }
+  // ondas: direção (x,y,z), frequência, velocidade, fase
+  const WAVES = [[0.62, 0.45, -0.64, 2.2, 0.55, 0], [-0.3, 0.85, 0.43, 2.8, -0.7, 1.3], [0.8, -0.2, 0.56, 3.4, 0.9, 2.1], [-0.55, -0.6, -0.58, 1.7, -0.45, 4]]
+    .map(([x, y, z, f, sp, ph]) => { const n = Math.hypot(x, y, z); return [x / n, y / n, z / n, f * Math.PI, sp * 2, ph]; });
+  const W = WAVES.flat();
+  const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+  const BLUE = [104, 168, 255], VIOLET = [146, 132, 255], PINK = [214, 136, 238];
+  const PAL = [];
+  for (let c = 0; c < 24; c++) {
+    const t = c / 23, col = t < 0.5 ? mix(BLUE, VIOLET, t * 2) : mix(VIOLET, PINK, (t - 0.5) * 2);
+    PAL.push(Array.from({ length: 8 }, (_, a) => `rgba(${col[0] | 0},${col[1] | 0},${col[2] | 0},${(0.12 + 0.8 * a / 7).toFixed(2)})`));
+  }
+  const O = { scale: 1, amp: 0.08, energy: 0, t: 0, spin: 0.6 };
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let orbLast = performance.now();
+  function orbFrame(now) {
+    const dt = Math.min(50, now - orbLast) / 1000; orbLast = now;
+    const w = orb.clientWidth, h = orb.clientHeight;
+    if (w && h && !stage.classList.contains('off')) {
+      const dpr = devicePixelRatio || 1;
+      if (orb.width !== Math.round(w * dpr) || orb.height !== Math.round(h * dpr)) { orb.width = Math.round(w * dpr); orb.height = Math.round(h * dpr); }
+      const speaking = voice.speaking, thinking = stage.classList.contains('thinking');
+      conv.pulse *= 0.92;
+      const listening = !speaking && (conv.listening || conv.state === 'await');
+      O.energy += ((speaking ? 0.35 + lips.o * 0.65 : listening ? 0.08 + conv.pulse * 0.25 : 0) - O.energy) * 0.15;
+      O.scale += ((speaking ? 1.22 + lips.o * 0.08 : thinking ? 1.06 : listening ? 1.04 + conv.pulse * 0.04 : 1) - O.scale) * 0.06;
+      O.amp += ((0.1 + (thinking ? 0.05 : 0) + O.energy * 0.13) - O.amp) * 0.08;
+      const pace = reduceMotion ? 0.3 : 1;
+      O.t += dt * pace * (1 + (thinking ? 0.9 : 0) + O.energy * 1.8);
+      O.spin += dt * pace * (0.16 + (thinking ? 0.4 : 0) + O.energy * 0.25);
+
+      octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      octx.globalCompositeOperation = 'source-over';
+      octx.clearRect(0, 0, w, h);
+      const breathe = 1 + Math.sin(O.t * 1.3) * 0.015;
+      // cresce ao falar, mas sempre cabe no quadro (conta a deformação máxima)
+      const R = Math.min(Math.min(w * 0.5, h) * 0.34 * O.scale * breathe, (h * 0.47) / (1 + O.amp * 1.3 + O.energy * 0.07), (w * 0.47) / (1 + O.amp * 1.3));
+      const cx = w / 2, cy = h / 2;
+      const glow = octx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 1.6);
+      glow.addColorStop(0, `rgba(110,140,255,${0.1 + O.energy * 0.16})`);
+      glow.addColorStop(1, 'rgba(110,140,255,0)');
+      octx.fillStyle = glow; octx.fillRect(0, 0, w, h);
+
+      octx.globalCompositeOperation = 'lighter';
+      const cs = Math.cos(O.spin), sn = Math.sin(O.spin), ct = Math.cos(0.38), st = Math.sin(0.38);
+      const amp = O.amp * 0.5, rip = O.energy * 0.07, tt = O.t;
+      for (let i = 0; i < ORB_N; i++) {
+        const x0 = PTS[i * 3], y0 = PTS[i * 3 + 1], z0 = PTS[i * 3 + 2];
+        let d = 0;
+        for (let k = 0; k < 24; k += 6) d += Math.sin(W[k + 3] * (x0 * W[k] + y0 * W[k + 1] + z0 * W[k + 2]) + tt * W[k + 4] + W[k + 5]);
+        const r = 1 + d * amp + rip * Math.sin(9 * y0 - tt * 7);
+        const x = x0 * r, y = y0 * r, z = z0 * r;
+        const x1 = x * cs + z * sn, z1 = -x * sn + z * cs;          // gira em Y
+        const y2 = y * ct - z1 * st, z2 = y * st + z1 * ct;          // inclina em X
+        const p = 1 / (1 - z2 * 0.22);
+        const px = cx + x1 * R * p, py = cy - y2 * R * p;
+        const depth = Math.min(1, Math.max(0, (z2 + 1.25) / 2.5));  // 1 = frente
+        const ci = Math.min(23, Math.max(0, Math.round(((0.35 - y2) / 1.35) * 23 + (1 - depth) * 3)));
+        const ai = Math.min(7, Math.max(0, Math.round(depth * 6 + O.energy)));
+        const sz = 0.7 + depth * 1.25 + O.energy * 0.35;
+        octx.fillStyle = PAL[ci][ai];
+        octx.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+      }
+    }
+    requestAnimationFrame(orbFrame);
+  }
+  requestAnimationFrame(orbFrame);
+
+  // ── painel de escolha da voz ──
+  function renderVoicePanel() {
+    $('#vOn').checked = voice.on;
+    const list = $('#vList'); list.replaceChildren();
+    const cur = currentPick();
+    const addOpt = (id, name, tags) => {
+      const l = el('label', 'opt'); const r = el('input'); r.type = 'radio'; r.name = 'vpick'; r.value = id; r.checked = id === cur;
+      r.onchange = () => { voice.pick = id; voice.pitch = null; savePrefs(); renderVoicePanel(); say('Olá! Esta é a minha voz.', { force: true }); };
+      l.append(r, el('span', '', name)); for (const t of tags) l.append(el('span', 'tag', t)); list.append(l);
+    };
+    if (voice.tts) { list.append(el('div', 'grp', 'VOZES DO CLAUDE (MAIS NATURAIS)')); for (const [n, lab] of CLAUDE_VOICES) addOpt('claude:' + n, lab, []); }
+    if (voice.device.length) {
+      list.append(el('div', 'grp', 'VOZES DO APARELHO (PORTUGUÊS)'));
+      for (const d of voice.device.slice(0, 12)) addOpt(d.id, d.name, [d.male ? 'masculina' : null, d.natural ? 'natural' : null].filter(Boolean));
+    }
+    const dev = Boolean(cur) && !cur.startsWith('claude:');
+    $('#pitchRow').hidden = !dev;
+    const p = pitchFor(cur); $('#vPitch').value = p; $('#vPitchV').textContent = p.toFixed(2);
+    $('#vRate').value = voice.rate; $('#vRateV').textContent = voice.rate.toFixed(2);
+    const hint = [];
+    if (voice.tts) hint.push('As vozes do Claude são as mais naturais: toque em cada uma para ouvir e fique com a mais grave.');
+    if (voice.device.length && !voice.device.some((d) => d.male)) hint.push('Este aparelho não tem voz masculina em português, por isso o tom já vem mais grave. No iPhone, vozes melhores podem ser baixadas em Ajustes › Acessibilidade › Conteúdo Falado › Vozes › Português (Brasil).');
+    if (conv.dict) hint.push('Com o microfone 🎙 ligado, a resposta sai pela voz do aparelho, porque a voz do Claude não fala enquanto o microfone escuta.');
+    if (!voice.tts && !voice.device.length) hint.push('Nenhuma voz em português foi encontrada neste navegador. Abra a página no Chrome ou no Edge do computador para ter vozes melhores.');
+    $('#vHint').textContent = hint.join(' ');
+  }
+  function closePanel() { vpanel.hidden = true; voiceBtn.setAttribute('aria-expanded', 'false'); }
+  voiceBtn.onclick = () => {
+    const open = vpanel.hidden;
+    vpanel.hidden = !open; voiceBtn.setAttribute('aria-expanded', String(open));
+    if (open) { loadDeviceVoices(); renderVoicePanel(); }
+  };
+  $('#vClose').onclick = closePanel;
+  vpanel.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closePanel(); voiceBtn.focus(); } });
+  $('#vOn').onchange = (e) => { voice.on = e.target.checked; savePrefs(); if (!voice.on) stopVoice(); applyVoiceBtn(); };
+  $('#vPitch').oninput = (e) => { voice.pitch = Number(e.target.value); $('#vPitchV').textContent = voice.pitch.toFixed(2); savePrefs(); };
+  $('#vRate').oninput = (e) => { voice.rate = Number(e.target.value); $('#vRateV').textContent = voice.rate.toFixed(2); savePrefs(); };
+  $('#vTest').onclick = () => say('Olá! Esta é a minha voz. Vou te mostrar as falhas que hackers éticos encontraram e que já foram corrigidas.', { force: true });
+  if (window.speechSynthesis) {
+    loadDeviceVoices();
+    window.speechSynthesis.addEventListener?.('voiceschanged', () => { loadDeviceVoices(); if (!vpanel.hidden) renderVoicePanel(); });
+  }
+
+  /** Bloco "SENTINEL · VOZ": o que a IA fala aparece escrito embaixo do holograma. */
+  function spoken(text, label = 'SENTINELA · VOZ') {
+    const d = el('div', 'ai voz'); d.append(el('div', 'lbl', label), document.createTextNode(text));
+    out.append(d); scroll();
+    say(text, { block: d });
+    return d;
+  }
+
+  // ── terminal ──
+  const scroll = () => { term.scrollTop = term.scrollHeight; };
+  function line(text, cls = '') { const d = el('div', 'ln ' + cls, text); out.append(d); scroll(); return d; }
+  function chips(label, items) {
+    const d = el('div', 'chips');
+    if (label) d.append(el('span', 'dim', label));
+    for (const [cmd, txt] of items) { const b = el('button', 'chip', txt); b.type = 'button'; b.onclick = () => run(cmd); d.append(b); }
+    out.append(d); scroll();
+  }
+  function rows(pairs) {
+    const d = el('div', 'rows');
+    for (const [k, v] of pairs) { const r = el('div'); r.append(el('span', 'k', k), el('span', '', String(v))); d.append(r); }
+    out.append(d); scroll();
+  }
+
+  const SEV = { 'crítica': ['s-crit', 'CRÍT', 'bg-crit', 'Crítica'], 'critica': ['s-crit', 'CRÍT', 'bg-crit', 'Crítica'], 'alta': ['s-high', 'ALTA', 'bg-high', 'Alta'], 'média': ['s-med', 'MÉD', 'bg-med', 'Média'], 'media': ['s-med', 'MÉD', 'bg-med', 'Média'], 'baixa': ['s-low', 'BAIXA', 'bg-low', 'Baixa'] };
+  const sevOf = (s) => SEV[String(s || '').toLowerCase()] || ['s-na', 'N/D', 'bg-na', 'N/D'];
+  const isCve = (id) => /^CVE-\d{4}-\d{4,7}$/i.test(String(id || ''));
+  const label = (f) => (isCve(f.id) ? f.id.toUpperCase() : `CASO-${String(f.ano || '').slice(-2) || '??'}-${String(f._n).padStart(2, '0')}`);
+
+  function vuln(f) {
+    const [cls, short] = sevOf(f.severidade);
+    const box = el('div', 'v');
+    const main = el('div', 'v-main');
+    const id = el('button', 'v-id', label(f)); id.type = 'button'; id.onclick = () => run('cve ' + label(f));
+    const cv = Number(f.cvss);
+    main.append(id, el('span', 'badge ' + cls, short + (Number.isFinite(cv) && cv > 0 ? ' ' + cv.toFixed(1) : '')), el('span', 'v-comp', f.componente || '—'), el('span', 'v-st', '✔ CORRIGIDA'));
+    box.append(main, el('div', 'v-sub', '↳ ' + (f.titulo || 'falha sem título')));
+    const who = [f.pesquisador ? 'hacker ético: ' + f.pesquisador : null, f.canal || null].filter(Boolean).join(' · ');
+    if (who) box.append(el('div', 'v-eth', '↳ ' + who));
+    const meta = el('div', 'v-meta');
+    if (f.ano) meta.append(el('span', '', String(f.ano)));
+    if (f.exploradaAntes) meta.append(el('span', 'kev', '⚠ chegou a ser explorada por atacantes'));
+    if (meta.childNodes.length) box.append(meta);
+    out.append(box); scroll();
+  }
+
+  function detail(f) {
+    const [cls] = sevOf(f.severidade);
+    const box = el('div', 'detail');
+    const head = el('div', 'v-main');
+    head.append(el('b', '', label(f)), el('span', 'badge ' + cls, sevOf(f.severidade)[3].toUpperCase() + (Number(f.cvss) ? ' ' + Number(f.cvss).toFixed(1) : '')), el('span', 'v-st', '✔ CORRIGIDA'));
+    box.append(head);
+    const dl = el('dl');
+    const add = (k, v) => { if (v == null || v === '') return; dl.append(el('dt', '', k)); const dd = el('dd'); if (v instanceof Node) dd.append(v); else dd.textContent = String(v); dl.append(dd); };
+    add('título', f.titulo); add('o que era', f.resumo); add('componente', f.componente); add('ano', f.ano);
+    add('hacker ético', f.pesquisador); add('canal', f.canal);
+    add('exploração', f.exploradaAntes ? 'chegou a ser explorada por atacantes antes ou logo após a correção' : 'sem registro de exploração em massa');
+    if (isCve(f.id)) { const a = el('a', '', 'NVD · ' + f.id.toUpperCase()); a.href = 'https://nvd.nist.gov/vuln/detail/' + f.id.toUpperCase(); a.target = '_blank'; a.rel = 'noreferrer'; add('conferir', a); }
+    add('origem', f._origem === 'acervo' ? 'acervo verificado do SENTINEL' : 'IA (Claude) a partir de divulgações públicas — confira no link oficial');
+    box.append(dl); out.append(box); scroll();
+  }
+
+  // ── painéis ──
+  function renderPanels() {
+    const t = state.target, fs = state.falhas;
+    $('#tabTarget').textContent = t ? 'ALVO: ' + t.nome.toUpperCase() : 'SEM ALVO';
+    $('#tMode').textContent = t ? (t._origem === 'acervo' ? 'ACERVO VERIFICADO' : 'IA + DADOS PÚBLICOS') : '—';
+    const tg = $('#target'); tg.replaceChildren();
+    if (!t) { tg.append(el('div', '', 'Nenhum alvo selecionado.'), el('div', 'dim', 'Digite o nome de uma empresa no terminal ou clique numa pasta embaixo.')); }
+    else {
+      tg.append(el('div', 'tname', t.nome));
+      const dl = el('dl', 'tdl');
+      const add = (k, v) => { dl.append(el('dt', '', k)); const dd = el('dd'); if (v instanceof Node) dd.append(v); else dd.textContent = v || '—'; dl.append(dd); };
+      add('setor', t.setor); add('sede', t.sede);
+      let bb = t.bugBounty || 'não informado';
+      if (t.bugBountyUrl && TRUSTED.test(t.bugBountyUrl)) { const a = el('a', '', bb); a.href = t.bugBountyUrl; a.target = '_blank'; a.rel = 'noreferrer'; bb = a; }
+      add('bug bounty', bb); add('casos', String(fs.length));
+      tg.append(dl);
+    }
+    // severidade
+    const counts = { 'Crítica': 0, 'Alta': 0, 'Média': 0, 'Baixa': 0 };
+    for (const f of fs) { const k = sevOf(f.severidade)[3]; if (k in counts) counts[k]++; }
+    const max = Math.max(1, ...Object.values(counts));
+    const sev = $('#sev'); sev.replaceChildren();
+    for (const [k, n] of Object.entries(counts)) {
+      const li = el('li'); li.title = `${k}: ${n}`;
+      const tr = el('span', 't'); const f = el('span', 'f ' + sevOf(k)[2]); f.style.width = (n / max * 100) + '%'; tr.append(f);
+      li.append(el('span', '', k.toUpperCase()), tr, el('span', 'n', String(n))); sev.append(li);
+    }
+    $('#sevMeta').textContent = t ? `${fs.length} caso${fs.length === 1 ? '' : 's'}` : '—';
+    drawGauge(t ? risk(fs) : null);
+    // hackers
+    const tally = new Map();
+    for (const f of fs) for (const n of String(f.pesquisador || '').split(/;|,| e (?=[A-ZÁÉÍÓÚ])/)) {
+      const name = n.trim(); if (!name || /an[ôo]nim|não divulgad|desconhecid/i.test(name)) continue;
+      tally.set(name, (tally.get(name) || 0) + 1);
+    }
+    const list = [...tally].sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const hk = $('#hackers'); hk.replaceChildren();
+    if (!list.length) hk.append(el('li', 'dim', 'Os pesquisadores creditados aparecem aqui.'));
+    for (const [name, c] of list) {
+      const li = el('li'); li.title = `${name}: ${c}`;
+      const br = el('span', 'br'); const i = el('i'); i.style.width = (c / list[0][1] * 100) + '%'; br.append(i);
+      li.append(el('span', 'nm', name), br, el('span', 'c', String(c))); hk.append(li);
+    }
+    renderFiles();
+  }
+
+  function risk(fs) {
+    if (!fs.length) return 0;
+    const sc = fs.map((f) => Number(f.cvss)).filter((n) => n > 0).sort((a, b) => b - a).slice(0, 10);
+    const avg = sc.length ? sc.reduce((a, b) => a + b, 0) / sc.length : 6;
+    const exp = fs.filter((f) => f.exploradaAntes).length;
+    const recent = fs.filter((f) => Number(f.ano) >= new Date().getFullYear() - 2).length;
+    return Math.max(1, Math.min(99, Math.round(avg * 5.5 + Math.min(20, exp * 3) + Math.min(14, recent * 2.5))));
+  }
+
+  function drawGauge(v) {
+    const svg = $('#gauge'), NS = 'http://www.w3.org/2000/svg';
+    svg.replaceChildren();
+    const cx = 70, cy = 66, r = 52, start = 150, sweep = 240;
+    const pt = (d, rr = r) => [cx + rr * Math.cos(d * Math.PI / 180), cy + rr * Math.sin(d * Math.PI / 180)];
+    const arc = (a0, a1) => { const [x0, y0] = pt(a0), [x1, y1] = pt(a1); return `M ${x0} ${y0} A ${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1} ${y1}`; };
+    const mk = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; svg.append(e); return e; };
+    mk('path', { d: arc(start, start + sweep), class: 'g-track' });
+    for (let i = 0; i <= 12; i++) { const t = start + sweep * i / 12; const [a, b] = pt(t, r + 7), [c, d] = pt(t, r + 11); mk('line', { x1: a, y1: b, x2: c, y2: d, class: 'g-tick' }); }
+    const lvl = v == null ? null : v >= 75 ? ['crit', 'MUITO ALTO'] : v >= 50 ? ['high', 'ALTO'] : v >= 25 ? ['med', 'MODERADO'] : ['low', 'BAIXO'];
+    if (v) mk('path', { d: arc(start, start + sweep * v / 99), class: 'g-fill', stroke: `var(--${lvl[0]})` });
+    mk('text', { x: cx, y: cy + 4, class: 'g-val' }, v == null ? '--' : String(v).padStart(2, '0'));
+    mk('text', { x: cx, y: cy + 20, class: 'g-lbl' }, v == null ? 'SEM ALVO' : lvl[1]);
+    svg.setAttribute('aria-label', v == null ? 'Índice de risco: sem alvo' : `Índice de risco ${v} de 99, ${lvl[1]}`);
+  }
+
+  // ── arquivos ──
+  const ICON_FOLDER = '<svg viewBox="0 0 24 20" class="fi" aria-hidden="true"><path d="M1 3.5h8l2 2.5h12v12H1z"/></svg>';
+  const ICON_FILE = (c) => `<svg viewBox="0 0 20 24" class="fi" aria-hidden="true"><path d="M2 1h11l5 5v17H2z"/><path d="M13 1v5h5" class="fold"/>${c ? `<rect x="5" y="15" width="10" height="3" style="fill:var(--${c})"/>` : ''}</svg>`;
+  function renderFiles() {
+    const box = $('#files'); box.replaceChildren();
+    const add = (iconHtml, text, cmd, hint) => { const b = el('button', 'file'); b.type = 'button'; b.title = hint || text; b.innerHTML = iconHtml; b.append(el('span', '', text)); b.onclick = () => run(cmd); box.append(b); };
+    if (!state.target) {
+      $('#filesTitle').textContent = 'ALVOS · ~/'; $('#filesMeta').textContent = 'clique para investigar';
+      for (const s of SUGESTOES) add(ICON_FOLDER, s, s, 'investigar ' + s);
+      return;
+    }
+    $('#filesTitle').textContent = 'ACHADOS · ~/' + state.target.nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    $('#filesMeta').textContent = `${state.falhas.length} corrigida${state.falhas.length === 1 ? '' : 's'} por hackers éticos`;
+    add(ICON_FOLDER, '..', 'alvos', 'voltar aos alvos');
+    add(ICON_FILE(null), 'relatorio.txt', 'relatorio', 'reimprimir o relatório');
+    add(ICON_FILE(null), 'etica.md', 'etica', 'o que é hacking ético');
+    for (const f of state.falhas) { const c = sevOf(f.severidade)[2].replace('bg-', ''); add(ICON_FILE(c), label(f).replace(/^CVE-/, ''), 'cve ' + label(f), f.titulo); }
+  }
+
+  // ── IA (Claude, na conta de quem está vendo a página) ──
+  function setAi(s) {
+    state.ai = s;
+    const b = $('#aiState');
+    b.textContent = { loading: '…', ok: 'ATIVA', none: 'INDISPONÍVEL', denied: 'NÃO PERMITIDA', demo: 'DEMONSTRAÇÃO' }[s];
+    b.className = s === 'ok' ? 'ok' : s === 'loading' ? 'dim' : 'warn';
+  }
+  const ERR = {
+    not_granted: 'Você não permitiu que esta página use o Claude. Sem a IA, mostro só o acervo verificado.',
+    sampling_disabled: 'O Claude não está disponível para esta conta.',
+    rate_limited: 'Muitas consultas seguidas. Espere um pouco e tente de novo.',
+    session_expired: 'Sua sessão expirou. Entre de novo no Claude e recarregue a página.',
+    refused: 'A IA recusou esta consulta. Reformule com foco defensivo (falhas corrigidas, quem reportou).',
+    empty_completion: 'A IA não respondeu nada. Tente outra vez.',
+    invalid_json: 'A resposta da IA veio num formato inesperado. Tente de novo.',
+  };
+  const errMsg = (e) => ERR[e?.code] || 'A conexão com a IA falhou. Tente de novo.';
+
+  function promptEmpresa(q) {
+    return `Você é o SENTINEL, assistente EDUCATIVO de hacking ético para um público leigo, em português do Brasil.
+
+Tarefa: liste falhas de segurança REAIS e PUBLICAMENTE DIVULGADAS em sistemas, sites, apps ou produtos da empresa "${q}" que foram REPORTADAS POR HACKERS ÉTICOS ou pesquisadores de segurança (bug bounty, divulgação coordenada, equipes de pesquisa) e que JÁ FORAM CORRIGIDAS.
+
+Regras:
+- Inclua só casos que você conhece com segurança. Não invente nada. Se não souber o número CVE exato, use null. Se o nome do pesquisador não foi divulgado, escreva "não divulgado".
+- Enquadramento estritamente defensivo: nada de exploits, payloads, comandos ou passos para reproduzir. Explique cada falha em uma frase simples, como para um leigo, e diga como foi corrigida.
+- Até 10 casos, do mais marcante para o menos.
+
+Responda SOMENTE com linhas JSON (um objeto JSON por linha), sem markdown, sem texto antes ou depois:
+1ª linha: {"tipo":"empresa","nome":"nome oficial","setor":"setor curto","sede":"Cidade, País","lat":0.0,"lon":0.0,"bugBounty":"programa ou plataforma de bug bounty, ou null","bugBountyUrl":"URL oficial do programa, ou null"}
+Uma linha por falha: {"tipo":"falha","id":"CVE-AAAA-NNNN ou null","titulo":"título curto","ano":2024,"severidade":"Crítica|Alta|Média|Baixa","cvss":9.8,"componente":"produto/sistema afetado","pesquisador":"nome ou handle","canal":"HackerOne, Bugcrowd, programa próprio, divulgação coordenada…","exploradaAntes":false,"resumo":"uma frase simples: o que era e como foi corrigida"}
+Última linha: {"tipo":"resumo","texto":"2 ou 3 frases sobre o que esses casos mostram e o valor do hacking ético"}
+Se não conhecer a empresa ou nenhum caso com segurança, devolva só a linha "empresa" com o que souber e a linha "resumo" explicando isso.`;
+  }
+
+  function parseLine(raw) {
+    const s = raw.trim().replace(/^```(json)?/, '').replace(/```$/, '').replace(/,$/, '').trim();
+    if (!s.startsWith('{')) return null;
+    try { return JSON.parse(s); } catch { return null; }
+  }
+  const num = (v, lo, hi) => { const n = Number(v); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+
+  async function investigate(q) {
+    const key = q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 .-]/g, '').trim();
+    const acervoKey = ACERVO[key] ? key : ALIASES[key];
+    state.ctl?.abort();
+    line('── RECONHECIMENTO PASSIVO · ' + q.toUpperCase() + ' ──', 'h');
+    line('somente informações públicas — nenhum sistema da empresa é acessado', 'dim');
+
+    if (!state.sample || state.ai === 'denied') {
+      if (state.demo) { if (!acervoKey) spoken(`No modo demonstração eu só tenho estas empresas: ${DEMO_LISTA}. Diga uma delas.`); }
+      else if (state.serverProblem) spoken(state.serverProblem);
+      else if (state.ai === 'loading') line('A IA ainda está conectando. Tente de novo em alguns segundos.', 'warn');
+      return showAcervo(acervoKey, q);
+    }
+
+    // Resposta falada imediata (ainda dentro do clique/tecla, o que libera o áudio no celular).
+    say(`Analisando ${q}. Vou procurar falhas que hackers éticos encontraram e que já foram corrigidas. Um momento.`);
+    stageMode('thinking');
+    const ctl = new AbortController(); state.ctl = ctl; state.busy = true;
+    const think = line('IA analisando divulgações públicas de bug bounty… (pode levar até um minuto)', 'think');
+    const t0 = Date.now();
+    const tick = setInterval(() => { think.textContent = `IA analisando divulgações públicas de bug bounty… ${Math.round((Date.now() - t0) / 1000)} s`; }, 1000);
+    const falhas = []; let empresa = null; let resumo = null; let pending = ''; let header = false;
+
+    const handle = (obj) => {
+      if (!obj || typeof obj !== 'object') return;
+      if (obj.tipo === 'empresa' && !empresa) {
+        empresa = { nome: String(obj.nome || q).slice(0, 80), setor: obj.setor ? String(obj.setor).slice(0, 60) : null, sede: obj.sede ? String(obj.sede).slice(0, 60) : null, lat: num(obj.lat, -90, 90), lon: num(obj.lon, -180, 180), bugBounty: obj.bugBounty ? String(obj.bugBounty).slice(0, 80) : null, bugBountyUrl: typeof obj.bugBountyUrl === 'string' ? obj.bugBountyUrl : null, _origem: 'ia' };
+        state.target = empresa; state.falhas = falhas; setGlobe(empresa); renderPanels();
+      } else if (obj.tipo === 'falha') {
+        if (!header) { header = true; clearInterval(tick); think.remove(); line('── FALHAS CORRIGIDAS GRAÇAS A HACKERS ÉTICOS ──', 'h'); }
+        const f = { id: isCve(obj.id) ? String(obj.id).toUpperCase() : null, titulo: String(obj.titulo || '').slice(0, 160), ano: num(obj.ano, 1990, 2100), severidade: obj.severidade, cvss: num(obj.cvss, 0, 10), componente: String(obj.componente || '').slice(0, 80), pesquisador: String(obj.pesquisador || '').slice(0, 120), canal: String(obj.canal || '').slice(0, 60), exploradaAntes: obj.exploradaAntes === true, resumo: String(obj.resumo || '').slice(0, 400), _origem: 'ia', _n: falhas.length + 1 };
+        falhas.push(f); vuln(f); renderPanels();
+      } else if (obj.tipo === 'resumo') {
+        resumo = String(obj.texto || '').slice(0, 800);
+      }
+    };
+
+    try {
+      await state.sample(promptEmpresa(q), {
+        meta: { empresa: q },
+        signal: ctl.signal,
+        cache: { gcTime: 6 * 60 * 60 * 1000 },
+        onText: ({ delta }) => {
+          const parts = (pending + delta).split('\n');
+          pending = parts.pop();
+          for (const p of parts) handle(parseLine(p));
+        },
+      });
+      if (pending.trim()) handle(parseLine(pending));
+      clearInterval(tick); think.remove();
+      if (!empresa) { state.target = { nome: q, _origem: 'ia' }; state.falhas = falhas; renderPanels(); }
+      finish(resumo, falhas);
+    } catch (e) {
+      clearInterval(tick); think.remove();
+      if (e?.code === 'cancelled') { line('consulta interrompida.', 'dim'); return; }
+      if (e?.code === 'not_granted' || e?.code === 'sampling_disabled') setAi('denied');
+      spoken(errMsg(e));
+      if (!falhas.length) showAcervo(acervoKey, q, true);
+      else finish(resumo, falhas);
+    } finally {
+      if (state.ctl === ctl) { state.ctl = null; state.busy = false; stageMode('idle'); }
+    }
+  }
+
+  /** Texto que a IA fala ao terminar (e que aparece escrito embaixo). */
+  function speech(nome, falhas, resumo) {
+    const n = falhas.length;
+    if (!n) return `${nome}: não encontrei casos públicos confiáveis de falhas reportadas por hackers éticos. Isso não quer dizer que não existam: muitos relatórios de bug bounty nunca são publicados.`;
+    const top = falhas[0];
+    const quem = /n[ãa]o divulgad|an[ôo]nim|desconhecid/i.test(top.pesquisador || '') || !top.pesquisador ? 'um pesquisador anônimo' : top.pesquisador;
+    const exp = falhas.filter((f) => f.exploradaAntes).length;
+    return [
+      `${nome}: encontrei ${n} falha${n > 1 ? 's' : ''} corrigida${n > 1 ? 's' : ''} graças a hackers éticos.`,
+      `A mais marcante: ${top.titulo || 'uma falha de segurança'}, reportada por ${quem}${top.ano ? `, em ${top.ano}` : ''}.`,
+      exp ? `${exp} ${exp > 1 ? 'delas chegaram' : 'delas chegou'} a ser ${exp > 1 ? 'exploradas' : 'explorada'} por atacantes, por isso corrigir rápido faz tanta diferença.` : '',
+      resumo || '',
+    ].filter(Boolean).join(' ');
+  }
+
+  function finish(resumo, falhas) {
+    const fala = speech(state.target?.nome || 'Este alvo', falhas, resumo);
+    remember(`Pesquise a empresa ${state.target?.nome || ''}`, fala);
+    spoken(fala + (conv.listening ? ' Para ver outra empresa, é só me chamar pelo nome.' : ''));
+    if (falhas.length) line('Respostas do Claude com base em divulgações públicas. Confira cada caso no link oficial (comando "cve <ID>").', 'dim');
+    chips('próximos passos:', [['relatorio', 'relatório'], ['ia por que esses casos foram graves?', 'perguntar à IA'], ['etica', 'o que é hacking ético'], ['alvos', 'outra empresa']]);
+    scroll();
+  }
+
+  function showAcervo(key, q, afterError) {
+    const a = key && ACERVO[key];
+    if (!a) {
+      state.target = null; state.falhas = []; setGlobe(null); renderPanels();
+      line(state.sample || state.serverProblem ? 'Sem a IA, só tenho casos verificados destas empresas:' : 'A IA não está disponível nesta visualização. Abra a página no Claude para pesquisar qualquer empresa. Casos verificados disponíveis:', afterError ? 'dim' : 'warn');
+      chips('', Object.keys(ACERVO).map((k) => [k, k]));
+      return;
+    }
+    state.target = { ...a.empresa, _origem: 'acervo' };
+    state.falhas = a.falhas.map((f, i) => ({ ...f, _origem: 'acervo', _n: i + 1 }));
+    setGlobe(state.target); renderPanels();
+    line('ACERVO VERIFICADO — casos históricos documentados (sem IA).', 'warn');
+    line('── FALHAS CORRIGIDAS GRAÇAS A HACKERS ÉTICOS ──', 'h');
+    for (const f of state.falhas) vuln(f);
+    spoken(speech(state.target.nome, state.falhas, null));
+    chips('próximos passos:', [['relatorio', 'relatório'], ['etica', 'o que é hacking ético'], ['alvos', 'outra empresa']]);
+  }
+
+  /** Conversa com a IA, com memória dos últimos turnos (como um chat de voz). */
+  async function ask(question) {
+    if (state.demo) { spoken(demoAnswer(question)); return; }
+    if (!state.sample || state.ai === 'denied') { spoken(state.serverProblem || 'A IA não está disponível nesta visualização. Abra a página dentro do Claude e permita o uso da IA.'); return; }
+    state.ctl?.abort(); stopVoice();
+    const ctl = new AbortController(); state.ctl = ctl;
+    const box = el('div', 'ai voz'); const txt = el('span', 'cursor', 'pensando…');
+    box.append(el('div', 'lbl', 'SENTINELA · VOZ'), txt); out.append(box); scroll();
+    voice.current = box; stageMode('thinking');
+    const ctx = state.target ? `Alvo atual: ${state.target.nome}. Casos listados: ${JSON.stringify(state.falhas.map((f) => ({ id: f.id, titulo: f.titulo, pesquisador: f.pesquisador, ano: f.ano, severidade: f.severidade, explorada: f.exploradaAntes })))}` : 'Nenhuma empresa pesquisada ainda.';
+    const rules = `Você é a SENTINELA, uma IA de voz educativa sobre hacking ético, conversando com uma pessoa leiga, em português do Brasil. Responda a QUALQUER pergunta de forma direta e simpática, como num chat de voz. Enquadramento estritamente defensivo: nunca dê exploits, payloads, comandos de ataque nem passos de invasão; fale de falhas só em nível conceitual (o que era, quem reportou, como foi corrigida, como se proteger). Se pedirem algo ofensivo, recuse com gentileza e ofereça a versão defensiva. Se a pessoa quiser pesquisar uma empresa, diga para ela falar só o nome da empresa. Não diga o seu próprio nome nas respostas.\n\nContexto da tela: ${ctx}\n\nResponda em até 90 palavras, em frases curtas e naturais para serem faladas em voz alta: texto simples, sem markdown, sem listas, sem links.`;
+    const turns = [{ role: 'user', content: rules }, { role: 'assistant', content: 'Entendido. Estou pronta para conversar.' }, ...conv.history.slice(-10), { role: 'user', content: question }];
+    // Fala cada frase assim que ela termina de ser escrita.
+    let said = 0, first = true;
+    const flush = (text, all) => {
+      const rest = text.slice(said);
+      const m = all ? rest.length : Math.max(rest.lastIndexOf('. '), rest.lastIndexOf('! '), rest.lastIndexOf('? '), rest.lastIndexOf('.\n')) + 1;
+      if (m <= 0) return;
+      const chunk = rest.slice(0, m); said += m;
+      if (chunk.trim()) { say(chunk, { append: !first }); first = false; }
+    };
+    try {
+      const { text } = await state.sample(turns, {
+        meta: { contexto: ctx },
+        signal: ctl.signal, cache: false,
+        onText: ({ text }) => { txt.textContent = text; scroll(); flush(text, false); },
+      });
+      flush(text, true);
+      remember(question, text);
+    } catch (e) {
+      if (e?.code === 'cancelled') { txt.textContent = e.text || '(interrompido)'; if (e.text) remember(question, e.text + ' (interrompida)'); }
+      else { if (e?.code === 'not_granted') setAi('denied'); txt.textContent = e?.text || ''; spoken(errMsg(e)); }
+    } finally { txt.classList.remove('cursor'); if (state.ctl === ctl) { state.ctl = null; stageMode('idle'); } }
+  }
+  /** Guarda um turno da conversa (pergunta → resposta) para dar contexto às próximas. */
+  function remember(user, assistant) {
+    conv.history.push({ role: 'user', content: String(user).slice(0, 600) }, { role: 'assistant', content: String(assistant).slice(0, 1200) });
+    conv.history = conv.history.slice(-12);
+  }
+
+  // ── comandos ──
+  const KNOWN_CMDS = new Set(['ajuda', 'help', '?', 'limpar', 'clear', 'cls', 'parar', 'stop', 'alvos', 'lista', 'alvo', 'empresa', 'relatorio', 'cve', 'ia', 'perguntar', 'etica']);
+  function run(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return;
+    line('', 'in').append(el('span', 'prompt', 'sentinela@etico:~$ '), text);
+    state.hist.push(text); state.hi = state.hist.length;
+    if (WAKE_RE.test(text) && handleUtterance(text)) return;
+    const [c0, ...rest] = text.split(/\s+/);
+    const cmd = c0.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const arg = rest.join(' ').trim();
+    // Depois de "Qual empresa você quer ver?", a próxima frase (que não seja um comando) é a empresa.
+    if (conv.state === 'await' && !KNOWN_CMDS.has(cmd)) { voiceRequest(cleanReq(text), null); return; }
+    switch (cmd) {
+      case 'ajuda': case 'help': case '?':
+        line('── COMANDOS ──', 'h');
+        rows([['🎙 “Olá, Sentinela”', 'toque no microfone e fale; ela pergunta a empresa e pesquisa'], ['<empresa>', 'falhas corrigidas por hackers éticos (ex.: google, nubank)'], ['<pergunta>?', 'pergunte em português, a IA responde em voz e por escrito'], ['cve <ID>', 'detalhes de um caso da lista'], ['ia <pergunta>', 'pergunte à IA sobre o alvo'], ['relatorio', 'resumo do alvo atual'], ['alvos', 'sugestões de empresas'], ['etica', 'o que é hacking ético'], ['parar', 'interrompe a IA (ou tecla ESC)'], ['limpar', 'limpa a tela']]);
+        return;
+      case 'limpar': case 'clear': case 'cls': out.replaceChildren(); return;
+      case 'parar': case 'stop': state.ctl?.abort(); stopVoice(); return;
+      case 'alvos': case 'lista':
+        state.target = null; state.falhas = []; setGlobe(null); renderPanels();
+        chips('experimente:', SUGESTOES.map((s) => [s, s]));
+        return;
+      case 'alvo': case 'empresa': if (!arg) { line('uso: alvo <empresa>', 'warn'); return; } investigate(arg); return;
+      case 'relatorio': {
+        if (!state.target) { line('Selecione uma empresa primeiro (ex.: digite "google").', 'warn'); return; }
+        const fs = state.falhas;
+        line('══ RELATÓRIO · ' + state.target.nome.toUpperCase() + ' ══', 'h');
+        rows([['casos corrigidos por hackers éticos', fs.length], ['críticos', fs.filter((f) => sevOf(f.severidade)[3] === 'Crítica').length], ['explorados por atacantes', fs.filter((f) => f.exploradaAntes).length], ['índice de risco (didático)', risk(fs) + '/99'], ['programa de bug bounty', state.target.bugBounty || 'não informado'], ['origem dos dados', state.target._origem === 'acervo' ? 'acervo verificado' : 'IA + divulgações públicas']]);
+        for (const f of fs) vuln(f);
+        return;
+      }
+      case 'cve': {
+        const id = arg.toUpperCase();
+        const f = state.falhas.find((x) => label(x) === id);
+        if (f) detail(f);
+        else if (isCve(id)) { line(`${id} não está na lista do alvo atual. Consulte em:`, 'dim'); const a = el('a', '', 'https://nvd.nist.gov/vuln/detail/' + id); a.href = a.textContent; a.target = '_blank'; a.rel = 'noreferrer'; const d = el('div', 'ln'); d.append(a); out.append(d); scroll(); }
+        else line('uso: cve CVE-AAAA-NNNN (clique no ID de um caso)', 'warn');
+        return;
+      }
+      case 'ia': case 'perguntar': if (!arg) { line('uso: ia <pergunta>', 'warn'); return; } ask(arg); return;
+      case 'etica':
+        line('── HACKING ÉTICO ──', 'h');
+        spoken('Hacking ético é como um chaveiro que testa fechaduras com permissão e avisa o dono quando encontra uma fraca. O hacker ético procura falhas com autorização, reporta à empresa por um programa de bug bounty ou por divulgação coordenada, e só publica depois da correção. Muitas empresas pagam recompensas por isso.');
+        line('O SENTINEL só mostra informação pública. Nada é varrido, testado ou invadido. Testar sistemas de terceiros sem autorização por escrito é crime (Lei 12.737/2012).', 'dim');
+        return;
+      default:
+        if (/\?\s*$/.test(text) || /^(o que|oque|como|por ?que|qual|quais|quem|quando|onde|explica|explique|me (fala|explica|conta|diga))\b/i.test(text)) ask(text);
+        else investigate(text);
+    }
+  }
+
+
+  // ── conversa por voz: "Olá, Sentinela" → "Qual empresa você quer ver?" → nome → pesquisa ──
+  // O microfone é o ditado do Claude (capacidade "dictation"): a página recebe só as palavras.
+  // Enquanto ele ouve, a voz do Claude não pode falar; nesse modo a resposta sai pela voz do aparelho.
+  const WAKE_RE = /(?:\b(?:ol[aá]|oi|al[oô]|hey|ei|e a[ií]|bom dia|boa tarde|boa noite)\b\s*[,!.]?\s*)?\bsentinel[ao]?\b[\s,.!?:;-]*/i;
+  const micBtn = $('#micBtn'), caption = $('#caption');
+  const cleanReq = (t) => String(t || '')
+    .replace(/^\s*(?:e\s+agora\s+|e\s+|agora\s+|ent[aã]o\s+|t[aá]\s*,?\s*|ok\s*,?\s*|beleza\s*,?\s*)/i, '')
+    .replace(/^\s*(?:por favor\s*,?\s*)?(?:(?:eu\s+)?quero\s+ver|me\s+mostr[ae]|mostr[ae]r?|pesquis[ae]r?|procur[ae]r?|busc[ae]r?|analis[ae]r?|ver|veja|investig[ae]r?)\s+/i, '')
+    .replace(/^\s*(?:as\s+falhas\s+d[aoe]s?\s+|a\s+empresa\s+|o\s+|a\s+|os\s+|as\s+)/i, '')
+    .replace(/[\s.!?,;:]+$/g, '')
+    .trim();
+  // Pergunta = começa com palavra de pergunta, ou é uma frase longa com "?". "E a Microsoft?" continua sendo empresa.
+  const isQuestion = (t) => /^(e\s+)?(o que|oque|como|por ?que|porque|qual|quais|quem|quando|onde|quanto|quantas|quantos|explica|explique|me (fala|explica|conta|diga)|ela|ele|isso|isto|essa|esse|foi|é|tem|teve|pode|vale|existe|voc[eê]|sabe|conta|fala)\b/i.test(String(t).trim()) || (/\?\s*$/.test(t) && String(t).trim().split(/\s+/).length > 4);
+  const SEARCH_VERB = /^\s*(?:e\s+)?(?:(?:eu\s+)?quero\s+ver|me\s+mostr[ae]|mostr[ae]r?|pesquis[ae]r?|procur[ae]r?|busc[ae]r?|analis[ae]r?|investig[ae]r?|veja)\b/i;
+  const BYE = /^(tchau|at[eé] mais|at[eé] logo|pode parar|para de ouvir|desliga(r)?|encerra(r)?|obrigad[oa]\s*,?\s*tchau|valeu\s*,?\s*tchau)\b/i;
+  const muted = () => performance.now() < conv.mutedUntil;
+  /** Palavras novas (que a IA não acabou de falar) neste trecho. */
+  function freshWords(text) {
+    const said = new Set(); const now = performance.now();
+    for (const r of conv.recent) if (now - r.t < 30000) for (const w of r.words) said.add(w);
+    return [...wordsOf(text)].filter((w) => !said.has(w));
+  }
+  /** A pessoa começou a falar enquanto a IA falava: interrompe e passa a ouvir. */
+  function maybeBargeIn(text) {
+    if (!voice.speaking) return false;
+    if (!/sentinel/i.test(text)) return false;          // enquanto ela fala, só o nome dela interrompe
+    // Se ela mesma disse "Sentinela" há pouco, só vale com alguma palavra nova sua junto.
+    const now = performance.now();
+    const herself = conv.recent.some((r) => now - r.t < 15000 && (r.words.has('sentinela') || r.words.has('sentinel')));
+    if (herself && freshWords(text).filter((w) => !/^sentinel/.test(w)).length < 1) return false;
+    state.ctl?.abort(); stopVoice(); conv.mutedUntil = 0; conv.interrupted = true;
+    if (caption) caption.textContent = 'pode falar…';
+    return true;
+  }
+
+  function setCaption() {
+    if (!caption) return;
+    caption.textContent = conv.state === 'await' ? (conv.listening || conv.starting ? 'diga o nome da empresa…' : 'toque numa empresa aqui embaixo')
+      : conv.listening ? 'diga “Sentinela” para falar comigo' : '';
+  }
+  const wake = $('#wake'), wakeText = $('#wakeText');
+  stage.title = 'Toque para falar com a Sentinela';
+  function updateWake() {
+    wake.hidden = conv.listening || conv.starting || voice.speaking || stage.classList.contains('thinking');
+    wakeText.textContent = conv.wasListening ? 'TOQUE NA ESFERA PARA VOLTAR A OUVIR' : 'TOQUE NA ESFERA PARA FALAR COM A SENTINELA';
+  }
+  function updateMicUi() {
+    updateWake();
+    micBtn.classList.toggle('live', conv.listening);
+    micBtn.setAttribute('aria-pressed', String(conv.listening));
+    micBtn.title = conv.listening ? 'Parar de ouvir' : 'Falar com o Sentinela';
+    stage.classList.toggle('listening', conv.listening || conv.state === 'await');
+    setCaption(); refreshStatus();
+  }
+  function echo(heard) { if (heard) line('', 'in').append(el('span', 'prompt', '🎙 você: '), heard); }
+  /** Responde ao chamado "Olá, Sentinela" e espera o nome da empresa. */
+  function wakeReply(heard) {
+    echo(heard);
+    conv.state = 'await';
+    clearTimeout(conv.awaitTimer);
+    conv.awaitTimer = setTimeout(() => { if (conv.state === 'await') { conv.state = 'idle'; updateMicUi(); } }, 15000);
+    spoken(conv.interrupted ? 'Pode falar.' : 'Olá! Qual empresa você quer ver?');
+    conv.interrupted = false;
+    updateMicUi();
+  }
+  /** Executa o pedido falado (empresa ou pergunta). */
+  function voiceRequest(raw, heard) {
+    echo(heard);
+    conv.state = 'idle'; clearTimeout(conv.awaitTimer); updateMicUi();
+    const q = String(raw || '').trim();
+    if (BYE.test(q)) { stopListening(); spoken('Até mais! É só tocar na esfera quando quiser falar comigo.'); return; }
+    if (/^(parar|pare|chega|cancelar|cancela|sil[eê]ncio)[\s.!]*$/i.test(q)) { state.ctl?.abort(); stopVoice(); return; }
+    const req = cleanReq(q);
+    if (req.replace(/[^\p{L}\p{N}]/gu, '').length < 2) return;   // ruído ("é", "hum")
+    if (SEARCH_VERB.test(q)) {                                    // "pesquisa a Tesla e me diz…" → pesquisa a Tesla
+      const name = req.split(/\s+(?:e|pra|para|que|porque)\s+|[,;]/i)[0].trim();
+      if (name) return investigate(name);
+    }
+    // Nome curto = empresa; perguntas e frases longas = conversa com a IA.
+    if (isQuestion(q) || req.split(/\s+/).length > 4) ask(q); else investigate(req);
+  }
+  /** Trata uma frase (falada ou digitada). Devolve true se era para o Sentinela. */
+  function handleUtterance(text, { spokenInput = false } = {}) {
+    const t = String(text || '').trim();
+    if (!t) return false;
+    // "Tchau, Sentinela" encerra (vem antes do chamado, que também tem "Sentinela")
+    if (BYE.test(t) && (WAKE_RE.test(t) || conv.state === 'await')) { voiceRequest(t, spokenInput ? t : null); return true; }
+    const m = t.match(WAKE_RE);
+    if (m) {
+      const rest = cleanReq(t.slice(m.index + m[0].length));
+      if (rest) voiceRequest(t.slice(m.index + m[0].length), spokenInput ? t : null); else wakeReply(spokenInput ? t : null);
+      return true;
+    }
+    if (conv.state === 'await') { voiceRequest(t, spokenInput ? t : null); return true; }
+    return false;                                       // sem "Sentinela": ignora em silêncio
+    return false;
+  }
+
+  /** Recebe um trecho de fala já reconhecido; junta os pedaços e trata a frase após uma pausa. */
+  function feedFinal(text) {
+    if (voice.speaking && !maybeBargeIn(text)) return;   // enquanto ela fala, só passa o que não é eco
+    if (muted()) return;
+    conv.buf += (conv.buf && !/^\s/.test(text) ? ' ' : '') + text;
+    clearTimeout(conv.timer);
+    conv.timer = setTimeout(() => { const t = conv.buf.trim(); conv.buf = ''; if (WAKE_RE.test(t) || !isEcho(t)) handleUtterance(t, { spokenInput: true }); }, 900);
+  }
+
+  // Reconhecimento de voz do próprio navegador (usado quando o ditado do Claude não existe, ex.: celular).
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  function startBrowserRec() {
+    if (!SR || conv.recBlocked) return false;
+    if (conv.rec) return true;
+    try {
+      const rec = new SR();
+      rec.lang = 'pt-BR'; rec.continuous = true; rec.interimResults = true;
+      rec.onstart = () => { conv.rec = rec; conv.listening = true; conv.wasListening = true; updateMicUi(); };
+      rec.onresult = (e) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal) feedFinal(r[0].transcript); else interim += r[0].transcript;
+        }
+        if (interim && voice.speaking) maybeBargeIn(interim);
+        if (!muted() && !voice.speaking && (conv.state === 'await' || /sentinel/i.test(interim))) { conv.pulse = 1; if (caption) caption.textContent = `ouvindo: ${interim}`; }
+      };
+      rec.onerror = (e) => {
+        if (['not-allowed', 'service-not-allowed', 'audio-capture'].includes(e.error)) { conv.recBlocked = true; noMicFallback(); }
+      };
+      rec.onend = () => {
+        conv.rec = null; conv.listening = false; updateMicUi();
+        // o navegador encerra depois de um silêncio: volta a ouvir enquanto a conversa estiver ligada
+        if (conv.auto && !conv.recBlocked && !document.hidden) setTimeout(() => { if (!conv.rec && conv.auto) startBrowserRec(); }, 300);
+      };
+      rec.start();
+      conv.listening = true; updateMicUi();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  /** Sem microfone possível nesta tela: ela pergunta em voz e você escolhe a empresa com um toque. */
+  function noMicFallback() {
+    conv.listening = false; updateMicUi();
+    if (conv.toldNoMic) { chips('toque numa empresa:', SUGESTOES.map((x) => [x, x])); return; }
+    conv.toldNoMic = true;
+    line(window.claude ? 'Este aparelho não deixa a página usar o microfone (o app do Claude no iPhone bloqueia). Para conversar por voz, abra este link no Chrome ou no Edge do computador. Aqui, é só tocar numa empresa:' : 'O microfone não foi liberado. Use o Chrome, o Edge ou o Safari e toque em “Permitir” quando o navegador pedir. Enquanto isso, é só tocar numa empresa:', 'warn');
+    chips('', SUGESTOES.map((x) => [x, x]));
+  }
+
+  /** Toque na esfera (ou no 🎙): ela cumprimenta em voz, pergunta a empresa e já começa a ouvir. */
+  function talkToMe() {
+    conv.auto = true; saveAuto();
+    let listening = false;
+    if (conv.dict) { startListening(); listening = true; }   // dentro do toque, antes de qualquer await
+    else listening = startBrowserRec();
+    conv.state = 'await';
+    clearTimeout(conv.awaitTimer);
+    conv.awaitTimer = setTimeout(() => { if (conv.state === 'await') { conv.state = 'idle'; updateMicUi(); } }, 20000);
+    const recente = Boolean(conv.greetedAt) && performance.now() - conv.greetedAt < 30000;
+    conv.greetedAt = performance.now();
+    if (listening && recente) { if (caption) caption.textContent = 'pode falar…'; }
+    else if (state.demo) spoken(`Olá, tudo bem? Este é o modo demonstração. Qual empresa você quer ver: ${DEMO_LISTA}?`);
+    else spoken(listening ? 'Olá, tudo bem? Qual empresa você quer ver?' : 'Olá, tudo bem? Qual empresa você quer ver? Toque numa delas aqui embaixo.');
+    if (!listening) noMicFallback();
+    updateMicUi();
+  }
+
+  function wireDictation(d) {
+    conv.dict = d;
+    d.onState(({ state: st, reason }) => {
+      conv.listening = st === 'listening' || st === 'starting';
+      if (st === 'listening') conv.wasListening = true;
+      if (st === 'idle') {
+        if (reason === 'not_granted') line('O microfone não foi liberado para esta página. Dá para liberar no menu Permissões da página.', 'warn');
+        else if (reason === 'unavailable') line('O ditado não está disponível nesta conta ou neste idioma.', 'warn');
+        else if (reason === 'time_limit') line('O microfone desliga sozinho depois de 60 minutos. Toque em 🎙 para continuar.', 'dim');
+        else if (reason === 'hidden') line('O microfone parou porque a página ficou em segundo plano. Toque em qualquer lugar para voltar a ouvir.', 'dim');
+      }
+      updateMicUi();
+    });
+    d.onPartial(({ text }) => {
+      if (text && voice.speaking) maybeBargeIn(text);
+      if (muted() || voice.speaking) return;
+      if (!text) { setCaption(); return; }
+      if (conv.state !== 'await' && !/sentinel/i.test(text)) return;   // não é com ela: nem mostra
+      conv.pulse = 1;
+      if (caption) caption.textContent = `ouvindo: ${text}`;
+    });
+    d.onFinal(({ text }) => feedFinal(text));
+    updateMicUi();
+  }
+
+  /** Abre o microfone. Precisa ser chamado direto de um clique ou tecla (regra do navegador). */
+  function startListening() {
+    if (!conv.dict || conv.dict.active() || conv.starting) return;
+    conv.starting = true; updateWake();
+    conv.dict.start(conv.lang ? { language: conv.lang } : undefined).then(() => {
+      if (!conv.greeted) { conv.greeted = true; line('🎙 Microfone ligado. Ela só responde quando você disser “Sentinela”, por exemplo: “Sentinela, pesquisa o Nubank”. Para desligar: “Sentinela, tchau”.', 'dim'); }
+    }).catch((e) => {
+      if (e?.code === 'unavailable' && conv.lang) { conv.lang = null; line('Ditado em português indisponível aqui. Toque de novo para tentar no idioma do navegador.', 'warn'); }
+      else if (e?.code === 'not_granted') { conv.auto = false; line('O microfone não foi liberado para esta página. Dá para liberar no menu Permissões da página e depois tocar em 🎙.', 'warn'); }
+      else if (e?.code === 'rate_limited') line('Muitos ditados ao mesmo tempo. Tente de novo em instantes.', 'warn');
+      else if (e?.code === 'dismissed') conv.auto = false;
+      else if (e?.code !== 'stopped') line('Não consegui abrir o microfone agora. Toque em 🎙 para tentar de novo.', 'warn');
+    }).finally(() => { conv.starting = false; updateMicUi(); });
+  }
+  const saveAuto = () => { try { localStorage.setItem('sentinel.auto', conv.auto ? '1' : '0'); } catch {} };
+  try { conv.auto = localStorage.getItem('sentinel.auto') !== '0'; } catch {}
+
+  function stopListening() {
+    conv.auto = false; saveAuto();
+    conv.dict?.stop().catch(() => {});
+    try { conv.rec?.stop(); } catch {}
+    conv.listening = false; conv.state = 'idle'; updateMicUi();
+  }
+  micBtn.addEventListener('click', () => { if (conv.listening || conv.starting) stopListening(); else talkToMe(); });
+  stage.addEventListener('click', (e) => { if (e.target.closest('.vpanel')) return; if (!conv.listening || conv.state !== 'await') talkToMe(); });
+
+  // Primeiro toque ou tecla em QUALQUER lugar da página já liga o microfone (e libera a voz).
+  function firstGesture(e) {
+    if (e.target?.closest?.('#micBtn, #stage')) return;   // esses já começam a conversa
+    if (conv.dict && conv.auto) startListening();
+    if (conv.needsUnlock) {
+      // No celular, o áudio só é liberado por um toque: libera em silêncio.
+      conv.needsUnlock = false;
+      try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; window.speechSynthesis.speak(u); } catch {}
+    }
+  }
+  document.addEventListener('click', firstGesture, true);
+  document.addEventListener('keydown', firstGesture, true);
+
+  // Ditado pelo teclado do celular: "Olá, Sentinela" ou o nome da empresa (após a pergunta) enviam sozinhos.
+  let autoTimer = null;
+  input.addEventListener('input', () => {
+    clearTimeout(autoTimer);
+    const v = input.value;
+    if (!v.trim() || !(WAKE_RE.test(v) || conv.state === 'await')) return;
+    autoTimer = setTimeout(() => { if (input.value === v) $('#form').requestSubmit(); }, 1600);
+  });
+
+  // ── entrada ──
+  $('#form').addEventListener('submit', (e) => { e.preventDefault(); const v = input.value; input.value = ''; run(v); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault(); if (!state.hist.length) return;
+      state.hi = Math.max(0, Math.min(state.hist.length, state.hi + (e.key === 'ArrowUp' ? -1 : 1)));
+      input.value = state.hist[state.hi] || '';
+    } else if (e.key === 'Escape') { input.value = ''; state.ctl?.abort(); stopVoice(); }
+    else if (e.key === 'Tab') {
+      e.preventDefault(); const v = input.value.toLowerCase();
+      const hit = v && [...SUGESTOES, 'ajuda', 'relatorio', 'alvos', 'etica', 'limpar', 'parar'].find((w) => w.startsWith(v));
+      if (hit) input.value = hit;
+    }
+  });
+  term.addEventListener('click', (e) => { if (e.target === term || e.target === out) { if (window.getSelection()?.isCollapsed) input.focus({ preventScroll: true }); } });
+
+  // ── teclado virtual ──
+  const ROWS = [
+    [['ESC', 'Escape', 1.3], '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', ['⌫', 'Backspace', 1.9]],
+    [['TAB', 'Tab', 1.6], 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '´', '['],
+    [['CAPS', 'CapsLock', 1.9], 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ç', '~', ['ENTER', 'Enter', 1.6]],
+    [['SHIFT', 'Shift', 1.4], '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', ';', '/', ['SHIFT', 'Shift', 1.7]],
+    [['CTRL', 'Control', 1.4], ['FN', 'Fn', 1.1], ['', ' ', 7.4], ['ALT GR', 'AltGraph', 1.5], ['←', 'ArrowLeft', 1], ['↑', 'ArrowUp', 1], ['↓', 'ArrowDown', 1], ['→', 'ArrowRight', 1]],
+  ];
+  const keyEls = new Map();
+  for (const row of ROWS) {
+    const r = el('div', 'krow');
+    for (const k of row) {
+      const [lab, key, grow] = Array.isArray(k) ? k : [k, k, 1];
+      const b = el('button', 'key', lab.toUpperCase()); b.type = 'button'; b.tabIndex = -1; b.style.flexGrow = grow;
+      b.setAttribute('aria-label', key === ' ' ? 'espaço' : lab || key);
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', () => {
+        input.focus({ preventScroll: true });
+        if (key === 'Enter') { $('#form').requestSubmit(); }
+        else if (key === 'Backspace') input.value = input.value.slice(0, -1);
+        else if (key === 'Escape') { input.value = ''; state.ctl?.abort(); }
+        else if (key === 'Tab') input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
+        else if (key === 'ArrowUp' || key === 'ArrowDown') input.dispatchEvent(new KeyboardEvent('keydown', { key }));
+        else if (key.length === 1) input.value += key;
+        flash(key.toLowerCase());
+      });
+      r.append(b);
+      const list = keyEls.get(key.toLowerCase()) || []; list.push(b); keyEls.set(key.toLowerCase(), list);
+    }
+    $('#keys').append(r);
+  }
+  const press = (k, on) => (keyEls.get(k) || []).forEach((b) => b.classList.toggle('on', on));
+  const flash = (k) => { press(k, true); setTimeout(() => press(k, false), 120); };
+  addEventListener('keydown', (e) => {
+    press(e.key.toLowerCase(), true);
+    if (document.activeElement === document.body && e.key.length === 1 && !e.ctrlKey && !e.metaKey) input.focus();
+  });
+  addEventListener('keyup', (e) => press(e.key.toLowerCase(), false));
+  addEventListener('blur', () => keyEls.forEach((l) => l.forEach((b) => b.classList.remove('on'))));
+
+  // ── relógio ──
+  const pad = (n) => String(n).padStart(2, '0');
+  const WEEK = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'], MON = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+  function clock() {
+    const d = new Date(); const s = Math.floor((Date.now() - startedAt) / 1000);
+    $('#clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    $('#date').textContent = `${WEEK[d.getDay()]} ${pad(d.getDate())} ${MON[d.getMonth()]} ${d.getFullYear()}`;
+    $('#sess').textContent = `SESSÃO ${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+  }
+  clock(); setInterval(clock, 1000);
+
+  // ── globo pontilhado ──
+  const LAND = [
+    [[-168,66],[-162,70],[-140,70],[-125,70],[-95,72],[-80,73],[-62,66],[-56,52],[-66,45],[-70,42],[-76,35],[-81,31],[-80,25],[-82,27],[-84,30],[-90,29],[-97,27],[-97,21],[-92,18],[-87,21],[-88,15],[-83,10],[-79,8],[-81,7],[-86,11],[-92,14],[-105,20],[-110,23],[-115,30],[-117,33],[-123,38],[-124,42],[-124,48],[-130,55],[-140,59],[-152,58],[-158,56],[-165,60]],
+    [[-45,60],[-42,64],[-22,70],[-20,78],[-30,83],[-60,82],[-72,78],[-68,76],[-55,70],[-52,65]],
+    [[-80,10],[-72,12],[-62,11],[-52,5],[-50,0],[-44,-2],[-35,-6],[-37,-12],[-39,-18],[-41,-22],[-48,-26],[-53,-33],[-57,-36],[-62,-39],[-65,-45],[-68,-50],[-70,-55],[-74,-52],[-75,-45],[-73,-38],[-71,-30],[-70,-18],[-76,-14],[-81,-6],[-80,-1],[-78,2],[-77,7]],
+    [[-10,36],[-9,43],[-2,43.5],[-4.5,48],[2,51],[8,54],[10,57.5],[6,58],[5,62],[12,67],[18,70],[28,71],[40,68],[55,69],[70,73],[90,76],[110,77],[130,72],[140,72],[160,70],[180,68],[180,65],[170,60],[163,58],[156,51],[143,53],[140,47],[135,43],[129,41],[127,38],[126,35],[121,31],[122,29],[117,24],[110,21],[108,18],[106,10],[104,9],[100,13],[100,7],[103,1.5],[98,8],[98,16],[94,17],[92,22],[87,21],[80,15],[77,8],[73,17],[72,21],[67,25],[61,25],[57,26],[51,29],[48,30],[50,26],[56,26],[59,22],[55,17],[45,13],[43,17],[39,22],[35,28],[33,31],[35,36],[30,36.5],[27,37],[26,40],[29,41],[41,41.5],[28,46],[30,45.5],[23,40],[22,37],[20,39.5],[19,42],[14,45.5],[12.5,44],[16,41],[18,40],[16,38],[12,38],[10,44],[3,43],[-2,36.7]],
+    [[-17,21],[-16,28],[-10,30],[-6,36],[10,37],[11,33],[20,31],[30,31],[32,31],[34,28],[37,22],[39,15],[43,12],[51,12],[49,6],[42,-1],[40,-10],[40,-16],[35,-24],[33,-28],[28,-33],[20,-35],[18,-32],[14,-23],[12,-17],[13,-9],[9,-1],[9,4],[5,6],[-3,5],[-8,4],[-13,8],[-17,14]],
+    [[44,-25],[47,-25],[50,-15],[49,-12],[44,-17]],
+    [[114,-22],[114,-34],[118,-35],[124,-34],[131,-31],[138,-35],[141,-38],[147,-38],[150,-37],[153,-31],[153,-25],[146,-19],[145,-15],[142,-11],[136,-12],[131,-12],[126,-14],[122,-18]],
+    [[130,31],[132,34],[136,35],[140,36],[142,40],[141,45],[145,44],[143,42],[140,40],[140,35],[135,33]],
+    [[-5,50],[1,51],[2,53],[-3,56],[-2,58],[-5,58.5],[-6,56],[-3,54],[-5,52]],
+    [[109,1],[117,7],[119,5],[117,-4],[110,-3]], [[95,5],[98,4],[106,-6],[102,-5]], [[172,-34],[178,-38],[174,-42],[167,-46],[172,-41]],
+  ];
+  const inside = ([x, y], p) => { let h = false; for (let i = 0, j = p.length - 1; i < p.length; j = i++) { const [xi, yi] = p[i], [xj, yj] = p[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) h = !h; } return h; };
+  const DOTS = [];
+  for (let lat = -56; lat <= 80; lat += 3.2) { const st = 3.2 / Math.max(.35, Math.cos(lat * Math.PI / 180)); for (let lon = -180; lon < 180; lon += st) if (LAND.some((p) => inside([lon, lat], p))) DOTS.push([lon, lat]); }
+  const G = { lon: 40, tilt: 18, goal: null, t: 0 };
+  function setGlobe(t) { G.goal = t && t.lat != null && t.lon != null ? { lat: t.lat, lon: t.lon } : null; }
+  const cv = $('#globe'), ctx = cv.getContext('2d'), R = Math.PI / 180;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(64, now - last); last = now; G.t += dt;
+    const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+    if (w && h) {
+      if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+      if (G.goal) { const d = (((-G.goal.lon - G.lon) + 540) % 360) - 180; G.lon += d * Math.min(1, dt / 600); G.tilt += (Math.max(-35, Math.min(35, G.goal.lat * .6)) - G.tilt) * Math.min(1, dt / 600); }
+      else if (!reduce) G.lon += dt * (state.ctl ? .05 : .008);
+      const r = Math.min(w, h) * .42, cx = w / 2, cy = h / 2, l0 = -G.lon * R, p0 = G.tilt * R;
+      const proj = (lon, lat) => { const l = lon * R, p = lat * R, c = Math.sin(p0) * Math.sin(p) + Math.cos(p0) * Math.cos(p) * Math.cos(l - l0); return { x: cx + r * Math.cos(p) * Math.sin(l - l0), y: cy - r * (Math.cos(p0) * Math.sin(p) - Math.sin(p0) * Math.cos(p) * Math.cos(l - l0)), v: c > 0, d: c }; };
+      ctx.strokeStyle = 'rgba(160,220,225,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = 'rgba(160,220,225,.08)';
+      const grat = (fixed, isLat) => { ctx.beginPath(); let pen = false; for (let s = isLat ? -180 : -85; s <= (isLat ? 180 : 85); s += 5) { const q = isLat ? proj(s, fixed) : proj(fixed, s); if (q.v) { pen ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); pen = true; } else pen = false; } ctx.stroke(); };
+      for (let a = -60; a <= 60; a += 30) grat(a, true);
+      for (let a = -180; a < 180; a += 30) grat(a, false);
+      for (const [lon, lat] of DOTS) { const q = proj(lon, lat); if (!q.v) continue; ctx.fillStyle = `rgba(200,232,234,${.18 + q.d * .55})`; ctx.fillRect(q.x - .8, q.y - .8, 1.6, 1.6); }
+      if (G.goal) { const q = proj(G.goal.lon, G.goal.lat); if (q.v) { const pl = (G.t / 1400) % 1; ctx.strokeStyle = `rgba(127,231,224,${1 - pl})`; ctx.beginPath(); ctx.arc(q.x, q.y, 4 + pl * 14, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = '#7fe7e0'; ctx.beginPath(); ctx.arc(q.x, q.y, 3, 0, Math.PI * 2); ctx.fill(); } }
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  const DEMO_LISTA = 'Google, Microsoft, Apple, Meta, GitLab, Mozilla, Apache e OpenSSL';
+  function serverDown(msg) {
+    state.serverProblem = msg; state.sample = null; state.demo = true; setAi('demo');
+    line(`MODO DEMONSTRAÇÃO: sem o servidor da IA, a Sentinela mostra casos verificados de ${DEMO_LISTA} e responde a algumas perguntas prontas.`, 'warn');
+    line('(para o dono do site: ' + msg + ')', 'dim');
+  }
+  /** Respostas prontas do simulador (sem IA). */
+  function demoAnswer(q) {
+    const t = String(q).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (/bug ?bount|recompensa/.test(t)) return 'Bug bounty é um programa em que empresas pagam recompensas a hackers éticos que encontram falhas e avisam a empresa. Assim, ela corrige antes que criminosos descubram.';
+    if (/hack(ing|er)s?\s+etic|o que e hack/.test(t)) return 'Hacking ético é como um chaveiro que testa fechaduras com permissão e avisa o dono quando encontra uma fraca. O hacker ético procura falhas com autorização, reporta à empresa e só fala publicamente depois da correção.';
+    if (/\bcve\b/.test(t)) return 'CVE é o número público que identifica uma falha de segurança, como se fosse o RG da falha. Por exemplo, a famosa Log4Shell é a CVE 2021 44228.';
+    if (/explorad|ataca|perig/.test(t)) return 'Quando uma falha é explorada, criminosos usaram ela de verdade antes ou logo depois da correção. Por isso é tão importante atualizar os sistemas rápido.';
+    if (/proteg|seguranc|senha|conta/.test(t)) return 'Para se proteger: mantenha o celular e os apps atualizados, use senhas diferentes em cada site e ligue a verificação em duas etapas.';
+    if (/quem (e|es) voce|o que voce faz|como (voce )?funciona|quem e voce/.test(t)) return 'Eu mostro falhas de segurança que hackers éticos encontraram e que já foram corrigidas, usando só informação pública. É só dizer o nome de uma empresa.';
+    return `No modo demonstração eu respondo só algumas perguntas, como o que é bug bounty. Ou diga o nome de uma destas empresas: ${DEMO_LISTA}.`;
+  }
+  /** IA pelo servidor do site (/api/empresa e /api/conversa). Mesmo formato da capacidade "sample" do Claude. */
+  function apiSample(input, opts = {}) {
+    const turns = Array.isArray(input) ? input : null;
+    const url = opts.meta?.empresa ? '/api/empresa' : '/api/conversa';
+    const body = opts.meta?.empresa
+      ? { empresa: opts.meta.empresa }
+      : { pergunta: turns ? turns[turns.length - 1].content : String(input), historico: turns ? turns.slice(2, -1) : [], contexto: opts.meta?.contexto || '' };
+    return (async () => {
+      let res;
+      try {
+        res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: opts.signal });
+      } catch (e) {
+        throw { code: e?.name === 'AbortError' ? 'cancelled' : 'upstream_error', message: String(e) };
+      }
+      if (res.status === 429) throw { code: 'rate_limited', message: 'limite do servidor' };
+      if (!res.ok || !res.body) throw { code: 'upstream_error', message: 'HTTP ' + res.status };
+      const reader = res.body.getReader(); const dec = new TextDecoder(); let text = '';
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const delta = dec.decode(value, { stream: true });
+          if (!delta) continue;
+          text += delta;
+          opts.onText?.({ text, delta });
+        }
+      } catch (e) {
+        throw { code: e?.name === 'AbortError' ? 'cancelled' : 'upstream_error', message: String(e), text };
+      }
+      if (!text.trim()) throw { code: 'empty_completion', message: 'resposta vazia' };
+      return { text, truncated: false };
+    })();
+  }
+
+  // ── boot ──
+  renderPanels();
+  line('SENTINELA IA · console de reconhecimento ético', 'acc');
+  line('Toque na esfera e fale comigo: eu pergunto a empresa e mostro as falhas que HACKERS ÉTICOS encontraram e que já foram corrigidas, em voz e por escrito. Também dá para digitar.');
+  line('AVISO ÉTICO: só informação pública. Nenhum sistema da empresa é acessado. Testes reais exigem autorização por escrito.', 'warn');
+  chips('experimente:', [['google', 'google'], ['microsoft', 'microsoft'], ['nubank', 'nubank'], ['uber', 'uber'], ['o que é bug bounty?', 'o que é bug bounty?'], ['ajuda', 'ajuda']]);
+  setAi('loading');
+  const c = window.claude;
+  const browserOnly = () => { voice.mode = window.speechSynthesis ? 'browser' : 'none'; applyVoiceBtn(); };
+  if (c && typeof c.use === 'function') {
+    c.use('tts').then((t) => {
+      if (!t) return browserOnly();
+      voice.tts = t; voice.mode = 'tts'; applyVoiceBtn();
+      t.onState(({ state: st }) => setSpeaking(st === 'speaking'));
+      t.onLine?.(({ line }) => lipsStart(voice.lines[line] || ''));
+      t.onPosition?.(({ ms, line }) => lipsAt(ms, line));
+    }).catch(browserOnly);
+  } else browserOnly();
+  if (c && typeof c.use === 'function') {
+    c.use('dictation').then((d) => { if (d) wireDictation(d); else { conv.needsUnlock = Boolean(window.speechSynthesis); updateMicUi(); } }).catch(() => {});
+    c.use('sample').then((s) => { state.sample = s; setAi(s ? 'ok' : 'none'); if (!s) line('IA indisponível nesta visualização: vou usar o acervo verificado.', 'dim'); }).catch(() => setAi('none'));
+  } else if (/^https?:$/.test(location.protocol)) {
+    // Site próprio (fora do Claude): a IA vem do servidor do site, que guarda a chave da Anthropic.
+    state.sample = apiSample; setAi('ok');
+    fetch('/api/status', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status))))
+      .then((j) => { if (!j.ia) serverDown('A chave da IA ainda não foi configurada no servidor do site. Falta a variável ANTHROPIC_API_KEY.'); })
+      .catch(() => serverDown('O servidor da IA não está ativo neste site: só a parte visual foi publicada. Publique pela Vercel, como explica o LEIA-ME.'));
+    if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) line('Este navegador não tem reconhecimento de voz. Use o Chrome ou o Edge no computador, ou o Safari no iPhone (fora de apps como Instagram e WhatsApp).', 'warn');
+    conv.needsUnlock = Boolean(window.speechSynthesis); updateMicUi();
+  } else { setAi('none'); line('IA indisponível fora do Claude: vou usar o acervo verificado.', 'dim'); }
+  input.focus({ preventScroll: true });
+})();
+</script>
+
+</body>
+</html>

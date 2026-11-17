@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/empresa.js": { "maxDuration": 60 },
+    "api/conversa.js": { "maxDuration": 30 }
+  }
+}
